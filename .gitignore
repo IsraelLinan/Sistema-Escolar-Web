@@ -9,3 +9,4 @@ frontend/build/
 
 # Variables de entorno
 .env
+.DS_Store

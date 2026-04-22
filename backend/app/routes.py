@@ -2,11 +2,19 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
 from datetime import datetime, date
+import pytz
 import barcode
 from barcode.writer import ImageWriter
+from app.telegram_bot import enviar_notificacion, construir_mensaje_ingreso, construir_mensaje_salida
+import asyncio
 import hashlib
 import io
 import base64
+
+LIMA_TZ = pytz.timezone('America/Lima')
+
+def now_lima():
+    return datetime.now(LIMA_TZ).replace(tzinfo=None)
 
 router = APIRouter()
 
@@ -53,15 +61,21 @@ def ingreso_estudiante(data: IngresoRequest):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
-        estudiante_id, nombre = row
-        cur.execute("INSERT INTO ingresos_estudiantes (estudiante_id) VALUES (%s)", (estudiante_id,))
+        estudiante_id, nombre, chat_id = row
+        cur.execute("INSERT INTO ingresos_estudiantes (estudiante_id, hora_ingreso) VALUES (%s, %s)", (estudiante_id, now_lima()))
         conn.commit()
-        hora = datetime.now().strftime('%H:%M:%S')
+        hora = now_lima().strftime('%H:%M:%S')
         cur.close()
+
+        # Notificación Telegram
+        if chat_id:
+            mensaje = construir_mensaje_ingreso(nombre, hora, "estudiante")
+            asyncio.run(enviar_notificacion(chat_id, mensaje))
+
         return {"success": True, "nombre": nombre, "hora": hora, "tipo": "ingreso"}
     except HTTPException:
         raise
@@ -76,11 +90,11 @@ def salida_estudiante(data: IngresoRequest):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
-        estudiante_id, nombre = row
+        estudiante_id, nombre, chat_id = row
         cur.execute(
             "SELECT id FROM ingresos_estudiantes WHERE estudiante_id = %s AND hora_salida IS NULL ORDER BY hora_ingreso DESC LIMIT 1",
             (estudiante_id,)
@@ -89,10 +103,16 @@ def salida_estudiante(data: IngresoRequest):
         if not ingreso:
             raise HTTPException(status_code=400, detail="No hay ingreso pendiente para este estudiante")
         cur.execute("UPDATE ingresos_estudiantes SET hora_salida = %s WHERE id = %s",
-                    (datetime.now(), ingreso[0]))
+                    (now_lima(), ingreso[0]))
         conn.commit()
-        hora = datetime.now().strftime('%H:%M:%S')
+        hora = now_lima().strftime('%H:%M:%S')
         cur.close()
+
+        # Notificación Telegram
+        if chat_id:
+            mensaje = construir_mensaje_salida(nombre, hora, "estudiante")
+            asyncio.run(enviar_notificacion(chat_id, mensaje))
+
         return {"success": True, "nombre": nombre, "hora": hora, "tipo": "salida"}
     except HTTPException:
         raise
@@ -114,7 +134,7 @@ def ingreso_docente(data: IngresoRequest):
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
         docente_id, nombre = row
-        cur.execute("INSERT INTO ingresos_docentes (docente_id) VALUES (%s)", (docente_id,))
+        cur.execute("INSERT INTO ingresos_docentes (docente_id, hora_ingreso) VALUES (%s, %s)", (docente_id, now_lima()))
         conn.commit()
         hora = datetime.now().strftime('%H:%M:%S')
         cur.close()
