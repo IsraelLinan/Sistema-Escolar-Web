@@ -5,6 +5,7 @@ import TeacherIngress from '../components/TeacherIngress';
 import BarcodeGenerator from '../components/BarcodeGenerator';
 import WeeklyReports from '../components/WeeklyReports';
 import FotocheckGenerator from '../components/FotocheckGenerator';
+import ApoderadosManager from '../components/ApoderadosManager';
 
 const MODULES = [
   { id: 'estudiantes', icon: '🎓', label: 'Asistencia de Estudiantes', color: '#4f8ef7' },
@@ -12,6 +13,7 @@ const MODULES = [
   { id: 'reportes',   icon: '📋', label: 'Reporte de Asistencia',      color: '#f59e0b' },
   { id: 'codigos',    icon: '🏷️', label: 'Generar Código de Barra',    color: '#a855f7' },
   { id: 'fotocheck',  icon: '🪪', label: 'Generar Fotocheck Escolar',  color: '#06b6d4' },
+  { id: 'apoderados', icon: '👨‍👩‍👧', label: 'Gestión de Apoderados',     color: '#f43f5e' },
 ];
 
 export default function Dashboard() {
@@ -30,6 +32,7 @@ export default function Dashboard() {
       case 'reportes':    return <WeeklyReports />;
       case 'codigos':     return <BarcodeGenerator />;
       case 'fotocheck': return <FotocheckGenerator />;
+      case 'apoderados': return <ApoderadosManager />;
       default:            return null;
     }
   };

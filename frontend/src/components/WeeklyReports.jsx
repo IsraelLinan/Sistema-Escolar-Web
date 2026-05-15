@@ -7,6 +7,7 @@ export default function WeeklyReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
+  const [busquedaNombre, setBusquedaNombre] = useState('');
 
   const fetchReporte = async () => {
     setLoading(true);
@@ -23,9 +24,9 @@ export default function WeeklyReports() {
 
   useEffect(() => { fetchReporte(); }, [fecha]);
 
-  const registrosFiltrados = filtro === 'Todos'
-    ? registros
-    : registros.filter(r => r.tipo === filtro);
+  const registrosFiltrados = registros
+    .filter(r => filtro === 'Todos' || r.tipo === filtro)
+    .filter(r => r.nombre.toLowerCase().includes(busquedaNombre.toLowerCase()));
 
   const totalEstudiantes = registros.filter(r => r.tipo === 'Estudiante').length;
   const totalDocentes = registros.filter(r => r.tipo === 'Docente').length;
@@ -69,6 +70,18 @@ export default function WeeklyReports() {
               <option value="Estudiante">Estudiantes</option>
               <option value="Docente">Docentes</option>
             </select>
+          </div>
+
+          {/* Buscar por nombre */}
+          <div className="flex-1">
+            <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-2">Buscar por nombre</label>
+            <input
+              type="text"
+              value={busquedaNombre}
+              onChange={e => setBusquedaNombre(e.target.value)}
+              placeholder="🔍 Digita el Nombre"
+              className="w-full bg-[#22263a] border border-[#2e3350] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#f59e0b]"
+            />
           </div>
 
           {/* Botón */}
