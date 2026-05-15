@@ -57,7 +57,7 @@ echo ""
 echo -e "${YELLOW}▶ Iniciando Dashboard Streamlit...${NC}"
 cd ~/Desktop/Sistema-Escolar-Web
 source backend/venv/bin/activate
-streamlit run dashboard.py --server.port 8501 &
+python3 -m streamlit run dashboard.py --server.port 8501 &
 STREAMLIT_PID=$!
 sleep 5
 echo -e "${GREEN}  ✔ Dashboard listo en http://localhost:8501${NC}"
