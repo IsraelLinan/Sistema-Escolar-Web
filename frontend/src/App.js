@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +9,11 @@ function PrivateRoute({ children }) {
 }
 
 function App() {
+  useEffect(() => {
+    const theme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.classList.add(theme);
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

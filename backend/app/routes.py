@@ -219,39 +219,53 @@ def generar_codigo(data: BarcodeRequest):
 # ── REPORTES ──────────────────────────────────────────────────────────────────
 
 @router.get("/reportes/asistencia")
-def reporte_asistencia(fecha: str = None):
+def reporte_asistencia(fecha: str = None, tipo: str = None):
     conn = get_conn()
     try:
         cur = conn.cursor()
         fecha_filtro = fecha if fecha else date.today().isoformat()
 
-        cur.execute("""
+        query = """
             SELECT e.nombre, ie.hora_ingreso, ie.hora_salida, 'Estudiante' as tipo
             FROM ingresos_estudiantes ie
             JOIN estudiantes e ON e.id = ie.estudiante_id
             WHERE DATE(ie.hora_ingreso) = %s
+
             UNION ALL
+
             SELECT d.nombre, id2.hora_ingreso, id2.hora_salida, 'Docente' as tipo
             FROM ingresos_docentes id2
             JOIN docentes d ON d.id = id2.docente_id
             WHERE DATE(id2.hora_ingreso) = %s
-            ORDER BY hora_ingreso
-        """, (fecha_filtro, fecha_filtro))
 
+            UNION ALL
+
+            SELECT a.apellidos || ', ' || a.nombres, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
+            FROM ingresos_auxiliares ia
+            JOIN auxiliares a ON a.id = ia.auxiliar_id
+            WHERE DATE(ia.hora_ingreso) = %s
+
+            ORDER BY hora_ingreso
+        """
+        cur.execute(query, (fecha_filtro, fecha_filtro, fecha_filtro))
         rows = cur.fetchall()
         cur.close()
-        return {
-            "fecha": fecha_filtro,
-            "registros": [
-                {
-                    "nombre": r[0],
-                    "hora_ingreso": r[1].strftime('%H:%M:%S') if r[1] else None,
-                    "hora_salida": r[2].strftime('%H:%M:%S') if r[2] else None,
-                    "tipo": r[3]
-                }
-                for r in rows
-            ]
-        }
+
+        registros = [
+            {
+                "nombre": r[0],
+                "hora_ingreso": r[1].strftime('%H:%M:%S') if r[1] else None,
+                "hora_salida": r[2].strftime('%H:%M:%S') if r[2] else None,
+                "tipo": r[3]
+            }
+            for r in rows
+        ]
+
+        # Filtrar por tipo si se especifica
+        if tipo and tipo != 'Todos':
+            registros = [r for r in registros if r['tipo'] == tipo]
+
+        return {"fecha": fecha_filtro, "registros": registros}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -361,6 +375,210 @@ def probar_notificacion(data: dict):
     )
     asyncio.run(enviar_notificacion(chat_id, mensaje))
     return {"success": True, "message": "Notificación enviada"}
+
+# ── AUXILIARES ────────────────────────────────────────────────────────────────
+
+class AuxiliarCreate(BaseModel):
+    nombres: str
+    apellidos: str
+    dni: str = ""
+    fecha_nacimiento: str = ""
+    genero: str = "Masculino"
+    telefono: str = ""
+    email: str = ""
+    direccion: str = ""
+    area_asignada: str = ""
+    turno: str = ""
+    fecha_ingreso: str = ""
+    foto: str = ""
+
+class AuxiliarUpdate(AuxiliarCreate):
+    id: int
+
+@router.get("/auxiliares/lista")
+def lista_auxiliares(busqueda: str = "", turno: str = ""):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        query = """
+            SELECT id, nombres, apellidos, codigo, dni, fecha_nacimiento,
+                   genero, telefono, email, direccion, area_asignada,
+                   turno, fecha_ingreso, foto
+            FROM auxiliares
+            WHERE (LOWER(nombres) LIKE %s OR LOWER(apellidos) LIKE %s
+                   OR LOWER(codigo) LIKE %s OR dni LIKE %s)
+        """
+        params = [f"%{busqueda.lower()}%"] * 4
+        if turno:
+            query += " AND turno = %s"
+            params.append(turno)
+        query += " ORDER BY apellidos, nombres"
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        cur.close()
+        return {
+            "auxiliares": [
+                {
+                    "id": r[0], "nombres": r[1], "apellidos": r[2],
+                    "codigo": r[3], "dni": r[4] or "",
+                    "fecha_nacimiento": str(r[5]) if r[5] else "",
+                    "genero": r[6] or "", "telefono": r[7] or "",
+                    "email": r[8] or "", "direccion": r[9] or "",
+                    "area_asignada": r[10] or "", "turno": r[11] or "",
+                    "fecha_ingreso": str(r[12]) if r[12] else "",
+                    "foto": r[13] or ""
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.post("/auxiliares/crear")
+def crear_auxiliar(data: AuxiliarCreate):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        # Generar código automático
+        cur.execute("SELECT COUNT(*) FROM auxiliares")
+        count = cur.fetchone()[0]
+        codigo = f"AUX{str(count + 1).zfill(5)}"
+        cur.execute("""
+            INSERT INTO auxiliares (nombres, apellidos, codigo, dni, fecha_nacimiento,
+                genero, telefono, email, direccion, area_asignada, turno, fecha_ingreso, foto)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, codigo
+        """, (
+            data.nombres, data.apellidos, codigo,
+            data.dni or None, data.fecha_nacimiento or None,
+            data.genero, data.telefono, data.email, data.direccion,
+            data.area_asignada, data.turno,
+            data.fecha_ingreso or None, data.foto
+        ))
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        return {"success": True, "id": result[0], "codigo": result[1]}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.put("/auxiliares/actualizar")
+def actualizar_auxiliar(data: AuxiliarUpdate):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE auxiliares SET nombres=%s, apellidos=%s, dni=%s,
+                fecha_nacimiento=%s, genero=%s, telefono=%s, email=%s,
+                direccion=%s, area_asignada=%s, turno=%s, fecha_ingreso=%s, foto=%s
+            WHERE id=%s
+        """, (
+            data.nombres, data.apellidos, data.dni or None,
+            data.fecha_nacimiento or None, data.genero, data.telefono,
+            data.email, data.direccion, data.area_asignada, data.turno,
+            data.fecha_ingreso or None, data.foto, data.id
+        ))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.delete("/auxiliares/eliminar/{auxiliar_id}")
+def eliminar_auxiliar(auxiliar_id: int):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM auxiliares WHERE id = %s", (auxiliar_id,))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
         
+        
+# ── ASISTENCIA AUXILIARES ─────────────────────────────────────────────────────
+
+class AuxiliarIngresoRequest(BaseModel):
+    busqueda: str  # DNI o nombre
+
+@router.post("/auxiliares/ingreso")
+def ingreso_auxiliar(data: AuxiliarIngresoRequest):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, nombres, apellidos FROM auxiliares
+            WHERE dni = %s OR LOWER(nombres || ' ' || apellidos) LIKE %s
+            LIMIT 1
+        """, (data.busqueda, f"%{data.busqueda.lower()}%"))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
+        auxiliar_id, nombres, apellidos = row
+        nombre_completo = f"{apellidos}, {nombres}"
+        cur.execute("""
+            INSERT INTO ingresos_auxiliares (auxiliar_id, hora_ingreso)
+            VALUES (%s, %s)
+        """, (auxiliar_id, now_lima()))
+        conn.commit()
+        hora = now_lima().strftime('%H:%M:%S')
+        cur.close()
+        return {"success": True, "nombre": nombre_completo, "hora": hora, "tipo": "ingreso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.post("/auxiliares/salida")
+def salida_auxiliar(data: AuxiliarIngresoRequest):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, nombres, apellidos FROM auxiliares
+            WHERE dni = %s OR LOWER(nombres || ' ' || apellidos) LIKE %s
+            LIMIT 1
+        """, (data.busqueda, f"%{data.busqueda.lower()}%"))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
+        auxiliar_id, nombres, apellidos = row
+        nombre_completo = f"{apellidos}, {nombres}"
+        cur.execute("""
+            SELECT id FROM ingresos_auxiliares
+            WHERE auxiliar_id = %s AND hora_salida IS NULL
+            ORDER BY hora_ingreso DESC LIMIT 1
+        """, (auxiliar_id,))
+        ingreso = cur.fetchone()
+        if not ingreso:
+            raise HTTPException(status_code=400, detail="No hay ingreso pendiente para este auxiliar")
+        cur.execute("UPDATE ingresos_auxiliares SET hora_salida = %s WHERE id = %s",
+                    (now_lima(), ingreso[0]))
+        conn.commit()
+        hora = now_lima().strftime('%H:%M:%S')
+        cur.close()
+        return {"success": True, "nombre": nombre_completo, "hora": hora, "tipo": "salida"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
         
         

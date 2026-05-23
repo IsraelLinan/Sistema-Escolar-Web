@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-export default function TeacherIngress() {
-  const [codigo, setCodigo] = useState('');
+export default function AuxiliarIngress() {
+  const [busqueda, setBusqueda] = useState('');
   const [status, setStatus] = useState(null);
   const [clock, setClock] = useState('');
   const inputRef = useRef(null);
@@ -20,12 +20,14 @@ export default function TeacherIngress() {
   }, []);
 
   const handleAction = async (tipo) => {
-    if (!codigo.trim()) {
-      setStatus({ msg: 'Ingrese un código de barras.', color: 'warning' });
+    if (!busqueda.trim()) {
+      setStatus({ msg: 'Ingrese DNI o nombre del auxiliar.', color: 'warning' });
       return;
     }
     try {
-      const res = await axios.post(`http://localhost:8000/docentes/${tipo}`, { codigo_barras: codigo });
+      const res = await axios.post(`http://localhost:8000/auxiliares/${tipo}`, {
+        busqueda: busqueda.trim()
+      });
       setStatus({
         msg: `${tipo === 'ingreso' ? '✔ Ingreso' : '◀ Salida'}: ${res.data.nombre} — ${res.data.hora}`,
         color: tipo === 'ingreso' ? 'success' : 'warning'
@@ -33,12 +35,12 @@ export default function TeacherIngress() {
     } catch (e) {
       setStatus({ msg: `✗ ${e.response?.data?.detail || 'Error'}`, color: 'danger' });
     }
-    setCodigo('');
+    setBusqueda('');
     inputRef.current?.focus();
   };
 
   const statusColors = {
-    success: 'bg-[#22c55e20] border-[#22c55e] text-[#22c55e]',
+    success: 'bg-[#10b98120] border-[#10b981] text-[#10b981]',
     warning: 'bg-[#f59e0b20] border-[#f59e0b] text-[#f59e0b]',
     danger:  'bg-[#ef444420] border-[#ef4444] text-[#ef4444]',
   };
@@ -48,10 +50,10 @@ export default function TeacherIngress() {
       {/* Encabezado */}
       <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4">
-          <span className="text-5xl">👨‍🏫</span>
+          <span className="text-5xl">👷</span>
           <div>
-            <h2 className="text-theme text-xl font-bold">Asistencia de Docentes</h2>
-            <p className="text-muted text-sm">Ingreso y salida mediante código de barras</p>
+            <h2 className="text-theme text-xl font-bold">Asistencia de Auxiliares</h2>
+            <p className="text-muted text-sm">Registro de ingreso y salida por DNI o nombre</p>
           </div>
         </div>
       </div>
@@ -62,24 +64,24 @@ export default function TeacherIngress() {
         <div className="border-t border-theme mb-6" />
 
         <div className="text-center mb-4">
-          <span className="text-5xl text-[#22c55e]">▤</span>
-          <p className="text-muted text-sm mt-2">Escanee o ingrese el código de barras</p>
+          <span className="text-5xl text-[#10b981]">🪪</span>
+          <p className="text-muted text-sm mt-2">Ingrese el DNI o nombre del auxiliar</p>
         </div>
 
         <input
           ref={inputRef}
           type="text"
-          value={codigo}
-          onChange={e => setCodigo(e.target.value)}
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAction('ingreso')}
-          placeholder="Código de barras..."
-          className="w-full bg-theme3 border border-[#22c55e] text-theme rounded-xl px-4 py-3 text-sm font-mono focus:outline-none mb-6"
+          placeholder="DNI o nombre completo..."
+          className="w-full bg-theme3 border border-[#10b981] text-theme rounded-xl px-4 py-3 text-sm focus:outline-none mb-6"
         />
 
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => handleAction('ingreso')}
-            className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold py-3 rounded-xl transition text-sm"
+            className="flex-1 bg-[#10b981] hover:bg-[#059669] text-white font-bold py-3 rounded-xl transition text-sm"
           >
             ▶ Registrar Ingreso
           </button>

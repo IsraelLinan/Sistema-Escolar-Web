@@ -49,20 +49,19 @@ export default function BarcodeGenerator() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Encabezado */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 mb-4">
+      <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4">
           <span className="text-5xl">🏷️</span>
           <div>
-            <h2 className="text-[#e2e8f0] text-xl font-bold">Generador de Códigos de Barra</h2>
-            <p className="text-[#94a3b8] text-sm">Registre y genere identificadores para el personal</p>
+            <h2 className="text-theme text-xl font-bold">Generador de Códigos de Barra</h2>
+            <p className="text-muted text-sm">Registre y genere identificadores para el personal</p>
           </div>
         </div>
       </div>
 
       {/* Formulario */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 mb-4">
-        {/* Nombre */}
-        <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-2">
+      <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
+        <label className="block text-muted text-xs font-bold uppercase mb-2">
           Apellidos y Nombres
         </label>
         <input
@@ -71,11 +70,10 @@ export default function BarcodeGenerator() {
           onChange={e => setNombre(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleGenerar()}
           placeholder="Ej: García López, Juan Carlos"
-          className="w-full bg-[#22263a] border border-[#2e3350] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#a855f7] mb-4"
+          className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#a855f7] mb-4"
         />
 
-        {/* Tipo */}
-        <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-3">
+        <label className="block text-muted text-xs font-bold uppercase mb-3">
           Tipo de Persona
         </label>
         <div className="flex gap-6 mb-6">
@@ -88,19 +86,17 @@ export default function BarcodeGenerator() {
                 onChange={() => setTipo(t)}
                 className="accent-[#a855f7] w-4 h-4"
               />
-              <span className="text-[#e2e8f0] text-sm">{t}</span>
+              <span className="text-theme text-sm">{t}</span>
             </label>
           ))}
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-4 bg-[#ef444420] border border-[#ef4444] text-[#ef4444] rounded-xl px-4 py-2 text-sm">
             ✗ {error}
           </div>
         )}
 
-        {/* Botón generar */}
         <button
           onClick={handleGenerar}
           disabled={loading}
@@ -111,29 +107,29 @@ export default function BarcodeGenerator() {
       </div>
 
       {/* Vista previa */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6">
-        <p className="text-[#94a3b8] text-xs font-bold uppercase mb-4">Vista previa del código</p>
-        <div className="border-t border-[#2e3350] mb-4" />
+      <div className="bg-theme2 border border-theme rounded-2xl p-6">
+        <p className="text-muted text-xs font-bold uppercase mb-4">Vista previa del código</p>
+        <div className="border-t border-theme mb-4" />
 
         {resultado ? (
           <div className="text-center">
-            <p className="text-[#e2e8f0] font-bold mb-1">{resultado.nombre}</p>
-            <p className="text-[#94a3b8] text-xs mb-4">{resultado.tipo_persona}</p>
+            <p className="text-theme font-bold mb-1">{resultado.nombre}</p>
+            <p className="text-muted text-xs mb-4">{resultado.tipo_persona}</p>
             <img
               src={resultado.imagen}
               alt="Código de barras"
               className="mx-auto max-w-xs rounded-lg mb-4 bg-white p-2"
             />
-            <p className="text-[#94a3b8] text-xs font-mono mb-4">{resultado.codigo}</p>
+            <p className="text-muted text-xs font-mono mb-4">{resultado.codigo}</p>
             <button
               onClick={handleImprimir}
-              className="w-full bg-[#22263a] hover:bg-[#2e3350] border border-[#2e3350] text-[#e2e8f0] font-bold py-3 rounded-xl transition text-sm"
+              className="w-full bg-theme3 hover:bg-theme border border-theme text-theme font-bold py-3 rounded-xl transition text-sm"
             >
               🖨 Imprimir Código
             </button>
           </div>
         ) : (
-          <p className="text-[#94a3b8] text-sm text-center py-8">
+          <p className="text-muted text-sm text-center py-8">
             El código generado aparecerá aquí
           </p>
         )}

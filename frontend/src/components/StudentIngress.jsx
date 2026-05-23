@@ -46,29 +46,26 @@ export default function StudentIngress() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Encabezado */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 mb-4">
+      <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4">
           <span className="text-5xl">🎓</span>
           <div>
-            <h2 className="text-[#e2e8f0] text-xl font-bold">Registro de Estudiantes</h2>
-            <p className="text-[#94a3b8] text-sm">Ingreso y salida mediante código de barras</p>
+            <h2 className="text-theme text-xl font-bold">Asistencia de Estudiantes</h2>
+            <p className="text-muted text-sm">Ingreso y salida mediante código de barras</p>
           </div>
         </div>
       </div>
 
       {/* Panel principal */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6">
-        {/* Reloj */}
-        <p className="text-[#94a3b8] text-sm text-center mb-4">{clock}</p>
-        <div className="border-t border-[#2e3350] mb-6" />
+      <div className="bg-theme2 border border-theme rounded-2xl p-6">
+        <p className="text-muted text-sm text-center mb-4">{clock}</p>
+        <div className="border-t border-theme mb-6" />
 
-        {/* Scanner */}
         <div className="text-center mb-4">
           <span className="text-5xl text-[#4f8ef7]">▤</span>
-          <p className="text-[#94a3b8] text-sm mt-2">Escanee o ingrese el código de barras</p>
+          <p className="text-muted text-sm mt-2">Escanee o ingrese el código de barras</p>
         </div>
 
-        {/* Input */}
         <input
           ref={inputRef}
           type="text"
@@ -76,10 +73,9 @@ export default function StudentIngress() {
           onChange={e => setCodigo(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAction('ingreso')}
           placeholder="Código de barras..."
-          className="w-full bg-[#22263a] border border-[#4f8ef7] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#4f8ef7] mb-6"
+          className="w-full bg-theme3 border border-[#4f8ef7] text-theme rounded-xl px-4 py-3 text-sm font-mono focus:outline-none mb-6"
         />
 
-        {/* Botones */}
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => handleAction('ingreso')}
@@ -89,16 +85,17 @@ export default function StudentIngress() {
           </button>
           <button
             onClick={() => handleAction('salida')}
-            className="flex-1 bg-[#22263a] hover:bg-[#2e3350] border border-[#2e3350] text-[#e2e8f0] font-bold py-3 rounded-xl transition text-sm"
+            className="flex-1 bg-theme3 hover:bg-theme border border-theme text-theme font-bold py-3 rounded-xl transition text-sm"
           >
             ◀ Registrar Salida
           </button>
         </div>
 
-        {/* Status */}
-        <div className="border-t border-[#2e3350] pt-4">
-          <p className="text-[#94a3b8] text-xs font-bold uppercase mb-2">Último registro</p>
-          <div className={`border rounded-xl px-4 py-3 text-sm font-medium ${status ? statusColors[status.color] : 'bg-[#22263a] border-[#2e3350] text-[#94a3b8]'}`}>
+        <div className="border-t border-theme pt-4">
+          <p className="text-muted text-xs font-bold uppercase mb-2">Último registro</p>
+          <div className={`border rounded-xl px-4 py-3 text-sm font-medium ${
+            status ? statusColors[status.color] : 'bg-theme3 border-theme text-muted'
+          }`}>
             {status ? status.msg : 'Sin registros aún'}
           </div>
         </div>
