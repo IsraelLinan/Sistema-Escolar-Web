@@ -581,4 +581,154 @@ def salida_auxiliar(data: AuxiliarIngresoRequest):
     finally:
         put_conn(conn)
         
+# ── CARNETS ───────────────────────────────────────────────────────────────────
+
+@router.get("/carnets/lista")
+def lista_carnets(tipo: str = "Estudiante", busqueda: str = ""):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        if tipo == "Estudiante":
+            cur.execute("""
+                SELECT id, nombre, codigo_barras, dni, grado, seccion, anio, foto
+                FROM estudiantes
+                WHERE (LOWER(nombre) LIKE %s OR dni LIKE %s)
+                ORDER BY nombre
+            """, (f"%{busqueda.lower()}%", f"%{busqueda}%"))
+            rows = cur.fetchall()
+            cur.close()
+            return {
+                "carnets": [
+                    {
+                        "id": r[0], "nombre": r[1], "codigo_barras": r[2],
+                        "dni": r[3] or "", "grado": r[4] or "",
+                        "seccion": r[5] or "", "anio": r[6] or "2026",
+                        "foto": r[7] or "", "tipo": "Estudiante"
+                    }
+                    for r in rows
+                ]
+            }
+        else:
+            cur.execute("""
+                SELECT id, nombre, codigo_barras, dni, especialidad, anio, foto
+                FROM docentes
+                WHERE (LOWER(nombre) LIKE %s OR dni LIKE %s)
+                ORDER BY nombre
+            """, (f"%{busqueda.lower()}%", f"%{busqueda}%"))
+            rows = cur.fetchall()
+            cur.close()
+            return {
+                "carnets": [
+                    {
+                        "id": r[0], "nombre": r[1], "codigo_barras": r[2],
+                        "dni": r[3] or "", "especialidad": r[4] or "",
+                        "anio": r[5] or "2026", "foto": r[6] or "",
+                        "tipo": "Docente"
+                    }
+                    for r in rows
+                ]
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.get("/carnets/codigo-imagen/{codigo_barras}")
+def get_codigo_imagen(codigo_barras: str):
+    try:
+        barcode_obj = barcode.get_barcode_class('code128')(codigo_barras, writer=ImageWriter())
+        buffer = io.BytesIO()
+        barcode_obj.write(buffer)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return {"imagen": f"data:image/png;base64,{img_base64}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
         
+        
+# ── FOTOCHECKS GUARDADOS ──────────────────────────────────────────────────────
+
+class FotocheckSave(BaseModel):
+    nombre_escuela: str = ""
+    logo_escuela: str = ""
+    nombre: str
+    grado: str = ""
+    anio: str = "2026"
+    foto: str = ""
+    codigo_barras: str = ""
+    imagen_carnet: str = ""
+
+@router.post("/fotochecks/guardar")
+def guardar_fotocheck(data: FotocheckSave):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        # Buscar estudiante_id si existe
+        cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s LIMIT 1",
+                    (f"%{data.nombre.lower()}%",))
+        est = cur.fetchone()
+        estudiante_id = est[0] if est else None
+
+        cur.execute("""
+            INSERT INTO fotochecks (estudiante_id, nombre_escuela, logo_escuela,
+                nombre, grado, anio, foto, codigo_barras, imagen_carnet)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (estudiante_id, data.nombre_escuela, data.logo_escuela,
+              data.nombre, data.grado, data.anio, data.foto,
+              data.codigo_barras, data.imagen_carnet))
+        fid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        return {"success": True, "id": fid}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.get("/fotochecks/lista")
+def lista_fotochecks(busqueda: str = ""):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, nombre_escuela, logo_escuela, nombre, grado,
+                   anio, foto, codigo_barras, imagen_carnet, created_at
+            FROM fotochecks
+            WHERE LOWER(nombre) LIKE %s
+            ORDER BY created_at DESC
+        """, (f"%{busqueda.lower()}%",))
+        rows = cur.fetchall()
+        cur.close()
+        return {
+            "fotochecks": [
+                {
+                    "id": r[0], "nombre_escuela": r[1] or "",
+                    "logo_escuela": r[2] or "", "nombre": r[3],
+                    "grado": r[4] or "", "anio": r[5] or "2026",
+                    "foto": r[6] or "", "codigo_barras": r[7] or "",
+                    "imagen_carnet": r[8] or "",
+                    "fecha": str(r[9])[:10] if r[9] else ""
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.delete("/fotochecks/eliminar/{fotocheck_id}")
+def eliminar_fotocheck(fotocheck_id: int):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM fotochecks WHERE id = %s", (fotocheck_id,))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)

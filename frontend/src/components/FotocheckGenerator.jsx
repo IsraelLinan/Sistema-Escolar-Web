@@ -13,7 +13,9 @@ export default function FotocheckGenerator() {
   const [imagenCodigo, setImagenCodigo] = useState(null);
   const [loadingCodigo, setLoadingCodigo] = useState(false);
   const [loadingPDF, setLoadingPDF] = useState(false);
+  const [loadingGuardar, setLoadingGuardar] = useState(false);
   const [error, setError] = useState('');
+  const [exitoGuardar, setExitoGuardar] = useState('');
   const fotocheckRef = useRef(null);
 
   const handleFoto = (e) => {
@@ -59,15 +61,11 @@ export default function FotocheckGenerator() {
     setLoadingPDF(true);
     try {
       const canvas = await html2canvas(fotocheckRef.current, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: null,
+        scale: 3, useCORS: true, backgroundColor: null,
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: [85.6, 54],
+        orientation: 'landscape', unit: 'mm', format: [85.6, 54],
       });
       pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 54);
       pdf.save(`fotocheck_${nombre || 'estudiante'}.pdf`);
@@ -78,15 +76,47 @@ export default function FotocheckGenerator() {
     }
   };
 
+  const guardarFotocheck = async () => {
+    if (!nombre.trim()) {
+      setError('Ingrese el nombre del estudiante.');
+      return;
+    }
+    setLoadingGuardar(true);
+    setError('');
+    setExitoGuardar('');
+    try {
+      const canvas = await html2canvas(fotocheckRef.current, {
+        scale: 3, useCORS: true, backgroundColor: null,
+      });
+      const imagenCarnet = canvas.toDataURL('image/png');
+      await axios.post('http://localhost:8000/fotochecks/guardar', {
+        nombre_escuela: '',
+        logo_escuela: logoEscuela || '',
+        nombre,
+        grado,
+        anio,
+        foto: foto || '',
+        codigo_barras: codigoBarras || '',
+        imagen_carnet: imagenCarnet
+      });
+      setExitoGuardar('✔ Carnet guardado. Puedes verlo en el módulo Carnets.');
+      setTimeout(() => setExitoGuardar(''), 4000);
+    } catch (e) {
+      setError('Error al guardar el carnet.');
+    } finally {
+      setLoadingGuardar(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Encabezado */}
-      <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 mb-4">
+      <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4">
           <span className="text-5xl">🪪</span>
           <div>
-            <h2 className="text-[#e2e8f0] text-xl font-bold">Generar Fotocheck Escolar</h2>
-            <p className="text-[#94a3b8] text-sm">Diseña e imprime el carné del estudiante</p>
+            <h2 className="text-theme text-xl font-bold">Generar Fotocheck Escolar</h2>
+            <p className="text-muted text-sm">Diseña e imprime el carné del estudiante</p>
           </div>
         </div>
       </div>
@@ -94,13 +124,13 @@ export default function FotocheckGenerator() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Formulario */}
-        <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 space-y-4">
-          <p className="text-[#94a3b8] text-xs font-bold uppercase mb-2">Datos del Carné</p>
+        <div className="bg-theme2 border border-theme rounded-2xl p-6 space-y-4">
+          <p className="text-muted text-xs font-bold uppercase mb-2">Datos del Carné</p>
 
           {/* Logo escuela */}
           <div>
-            <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Logo de la Escuela</label>
-            <label className="w-full flex items-center gap-3 bg-[#22263a] border border-dashed border-[#2e3350] hover:border-[#06b6d4] text-[#94a3b8] rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Logo de la Escuela</label>
+            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
               <span>🏫</span>
               <span>{logoEscuela ? 'Logo cargado ✔' : 'Haz clic para subir el logo'}</span>
               <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
@@ -109,57 +139,57 @@ export default function FotocheckGenerator() {
 
           {/* Nombre estudiante */}
           <div>
-            <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Nombre del Estudiante</label>
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Nombre del Estudiante</label>
             <input
               type="text"
               value={nombre}
               onChange={e => setNombre(e.target.value)}
               placeholder="Ej: García López, Juan Carlos"
-              className="w-full bg-[#22263a] border border-[#2e3350] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
             />
           </div>
 
           {/* Grado y Año */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Grado</label>
+              <label className="block text-muted text-xs font-bold uppercase mb-1">Grado</label>
               <input
                 type="text"
                 value={grado}
                 onChange={e => setGrado(e.target.value)}
                 placeholder="Ej: 3° Secundaria"
-                className="w-full bg-[#22263a] border border-[#2e3350] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
               />
             </div>
             <div>
-              <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Año</label>
+              <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
               <input
                 type="text"
                 value={anio}
                 onChange={e => setAnio(e.target.value)}
                 placeholder="2026"
-                className="w-full bg-[#22263a] border border-[#2e3350] text-[#e2e8f0] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
               />
             </div>
           </div>
 
           {/* Foto */}
           <div>
-            <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Fotografía</label>
-            <label className="w-full flex items-center gap-3 bg-[#22263a] border border-dashed border-[#2e3350] hover:border-[#06b6d4] text-[#94a3b8] rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Fotografía</label>
+            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
               <span>📷</span>
               <span>{foto ? 'Foto cargada ✔' : 'Haz clic para subir una foto'}</span>
               <input type="file" accept="image/*" onChange={handleFoto} className="hidden" />
             </label>
           </div>
 
-          {/* Buscar código de barras */}
+          {/* Código de barras */}
           <div>
-            <label className="block text-[#94a3b8] text-xs font-bold uppercase mb-1">Código de Barras</label>
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Código de Barras</label>
             <button
               onClick={buscarCodigo}
               disabled={loadingCodigo}
-              className="w-full bg-[#22263a] hover:bg-[#2e3350] border border-[#2e3350] text-[#e2e8f0] font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              className="w-full bg-theme3 hover:bg-theme border border-theme text-theme font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
             >
               {loadingCodigo ? 'Buscando...' : '🔍 Buscar código del estudiante'}
             </button>
@@ -175,47 +205,56 @@ export default function FotocheckGenerator() {
             </div>
           )}
 
-          {/* Exportar PDF */}
-          <button
-            onClick={exportarPDF}
-            disabled={loadingPDF}
-            className="w-full bg-[#06b6d4] hover:bg-[#0891b2] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
-          >
-            {loadingPDF ? 'Generando PDF...' : '📄 Exportar como PDF'}
-          </button>
+          {/* Éxito */}
+          {exitoGuardar && (
+            <div className="bg-[#22c55e20] border border-[#22c55e] text-[#22c55e] rounded-xl px-4 py-2 text-sm">
+              {exitoGuardar}
+            </div>
+          )}
+
+          {/* Botones */}
+          <div className="flex gap-3">
+            <button
+              onClick={exportarPDF}
+              disabled={loadingPDF}
+              className="flex-1 bg-[#06b6d4] hover:bg-[#0891b2] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+            >
+              {loadingPDF ? 'Generando...' : '📄 Exportar PDF'}
+            </button>
+            <button
+              onClick={guardarFotocheck}
+              disabled={loadingGuardar}
+              className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+            >
+              {loadingGuardar ? 'Guardando...' : '💾 Guardar Carnet'}
+            </button>
+          </div>
         </div>
 
-        {/* Vista previa del fotocheck */}
-        <div className="bg-[#1a1d27] border border-[#2e3350] rounded-2xl p-6 flex flex-col items-center justify-center">
-          <p className="text-[#94a3b8] text-xs font-bold uppercase mb-4">Vista Previa</p>
+        {/* Vista previa */}
+        <div className="bg-theme2 border border-theme rounded-2xl p-6 flex flex-col items-center justify-center">
+          <p className="text-muted text-xs font-bold uppercase mb-4">Vista Previa</p>
 
-          {/* Carné */}
           <div
             ref={fotocheckRef}
             style={{ width: '342px', height: '216px', fontFamily: 'Arial, sans-serif' }}
             className="relative rounded-xl overflow-hidden shadow-2xl"
           >
-            {/* Fondo degradado header */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #1a6b8a 0%, #1e3a6e 50%, #1a3a5c 100%)',
-                height: '50%',
-                position: 'relative',
-              }}
-            >
-              {/* Patrón geométrico */}
+            {/* Header azul */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1a6b8a 0%, #1e3a6e 50%, #1a3a5c 100%)',
+              height: '50%', position: 'relative',
+            }}>
               <div style={{
                 position: 'absolute', inset: 0, opacity: 0.15,
                 backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
                 backgroundSize: '12px 12px'
               }} />
-
-              {/* Logo escuela - esquina superior derecha */}
+              {/* Logo */}
               <div style={{
                 position: 'absolute', top: '8px', right: '10px',
-                width: '70px', height: '70px',
-                borderRadius: '8px', overflow: 'hidden',
-                background: 'white', padding: '3px',
+                width: '70px', height: '70px', borderRadius: '8px',
+                overflow: 'hidden', background: 'white', padding: '3px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
@@ -225,8 +264,7 @@ export default function FotocheckGenerator() {
                   <span style={{ fontSize: '28px' }}>🏫</span>
                 )}
               </div>
-
-              {/* Etiqueta Carné */}
+              {/* Etiqueta */}
               <div style={{
                 position: 'absolute', bottom: '10px', right: '12px',
                 color: 'white', fontWeight: 'bold', fontSize: '16px',
@@ -236,16 +274,12 @@ export default function FotocheckGenerator() {
               </div>
             </div>
 
-            {/* Fondo blanco inferior */}
+            {/* Fondo blanco */}
             <div style={{ background: 'white', height: '50%', position: 'relative' }}>
-              {/* Franja verde inferior */}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                height: '8px',
-                background: 'linear-gradient(90deg, #22c55e, #16a34a)'
+                height: '8px', background: 'linear-gradient(90deg, #22c55e, #16a34a)'
               }} />
-
-              {/* Datos del estudiante */}
               <div style={{
                 position: 'absolute', left: '140px', top: '8px',
                 fontSize: '10px', color: '#333', lineHeight: '1.8'
@@ -256,12 +290,11 @@ export default function FotocheckGenerator() {
               </div>
             </div>
 
-            {/* Foto circular - posicionada a la izquierda atravesando ambas mitades */}
+            {/* Foto circular */}
             <div style={{
               position: 'absolute', left: '12px', top: '18px',
               width: '100px', height: '100px', borderRadius: '50%',
-              border: '3px solid white',
-              overflow: 'hidden', background: '#e5e7eb',
+              border: '3px solid white', overflow: 'hidden', background: '#e5e7eb',
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
             }}>
               {foto ? (
@@ -275,11 +308,10 @@ export default function FotocheckGenerator() {
               )}
             </div>
 
-            {/* Código de barras debajo de la foto */}
+            {/* Código de barras */}
             <div style={{
               position: 'absolute', left: '6px', bottom: '14px',
-              width: '116px', background: 'white',
-              borderRadius: '8px', padding: '3px',
+              width: '116px', background: 'white', borderRadius: '8px', padding: '3px',
               boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
             }}>
               {imagenCodigo ? (
@@ -294,7 +326,7 @@ export default function FotocheckGenerator() {
             </div>
           </div>
 
-          <p className="text-[#94a3b8] text-xs mt-4 text-center">
+          <p className="text-muted text-xs mt-4 text-center">
             Tamaño real: 85.6 × 54 mm (tarjeta estándar)
           </p>
         </div>

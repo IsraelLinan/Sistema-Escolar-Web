@@ -7,6 +7,7 @@ import AuxiliaresModule from '../components/AuxiliaresModule';
 import BarcodeGenerator from '../components/BarcodeGenerator';
 import WeeklyReports from '../components/WeeklyReports';
 import FotocheckGenerator from '../components/FotocheckGenerator';
+import CarnetsModule from '../components/CarnetsModule';
 import ApoderadosManager from '../components/ApoderadosManager';
 import useTheme from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
@@ -30,6 +31,7 @@ export default function Dashboard() {
       case 'auxiliares':            return <AuxiliaresModule />;
       case 'codigos':               return <BarcodeGenerator />;
       case 'fotocheck':             return <FotocheckGenerator />;
+      case 'carnets':               return <CarnetsModule />;
       case 'apoderados':            return <ApoderadosManager />;
       default:                      return null;
     }
@@ -84,6 +86,7 @@ export default function Dashboard() {
           <NavButton id="auxiliares" icon="👷"  label="Registro de Auxiliares"    color="#8b5cf6" />
           <NavButton id="codigos"    icon="🏷️" label="Generar Código de Barra"   color="#a855f7" />
           <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck Escolar" color="#06b6d4" />
+          <NavButton id="carnets" icon="🪪" label="Carnets" color="#3b82f6" />
           <NavButton id="apoderados" icon="👨‍👩‍👧" label="Gestión de Apoderados"    color="#f43f5e" />
 
           <div className="border-t border-theme my-3" />
