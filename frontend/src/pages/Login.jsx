@@ -18,8 +18,9 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      await axios.post('http://localhost:8000/auth/login', { username, password });
+      const res = await axios.post('http://localhost:8000/auth/login', { username, password });
       localStorage.setItem('authenticated', 'true');
+      localStorage.setItem('token', res.data.token);
       window.location.href = '/dashboard';
     } catch (e) {
       setError(e.response?.data?.detail || 'Error de conexión.');

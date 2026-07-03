@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from app.auth import crear_token, verificar_token
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
 from datetime import datetime, date
+import bcrypt
 import pytz
 import barcode
 from barcode.writer import ImageWriter
@@ -39,14 +41,21 @@ def login(data: LoginRequest):
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM usuarios WHERE username = %s AND password = %s",
-            (data.username, data.password)
+            "SELECT password FROM usuarios WHERE username = %s",
+            (data.username,)
         )
         user = cur.fetchone()
         cur.close()
-        if user:
-            return {"success": True, "message": "Login exitoso"}
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+        password_hash = user[0]
+        if not bcrypt.checkpw(data.password.encode(), password_hash.encode()):
+            raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+        token = crear_token(data.username)
+        return {"success": True, "message": "Login exitoso", "token": token}
     except HTTPException:
         raise
     except Exception as e:
@@ -57,7 +66,7 @@ def login(data: LoginRequest):
 # ── ESTUDIANTES ───────────────────────────────────────────────────────────────
 
 @router.post("/estudiantes/ingreso")
-def ingreso_estudiante(data: IngresoRequest):
+def ingreso_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -86,7 +95,7 @@ def ingreso_estudiante(data: IngresoRequest):
         put_conn(conn)
 
 @router.post("/estudiantes/salida")
-def salida_estudiante(data: IngresoRequest):
+def salida_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -125,7 +134,7 @@ def salida_estudiante(data: IngresoRequest):
 # ── DOCENTES ──────────────────────────────────────────────────────────────────
 
 @router.post("/docentes/ingreso")
-def ingreso_docente(data: IngresoRequest):
+def ingreso_docente(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -148,7 +157,7 @@ def ingreso_docente(data: IngresoRequest):
         put_conn(conn)
 
 @router.post("/docentes/salida")
-def salida_docente(data: IngresoRequest):
+def salida_docente(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -181,7 +190,7 @@ def salida_docente(data: IngresoRequest):
 # ── GENERADOR DE CÓDIGOS ──────────────────────────────────────────────────────
 
 @router.post("/codigos/generar")
-def generar_codigo(data: BarcodeRequest):
+def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         unique_id = hashlib.md5(data.nombre.encode()).hexdigest()
@@ -219,7 +228,7 @@ def generar_codigo(data: BarcodeRequest):
 # ── REPORTES ──────────────────────────────────────────────────────────────────
 
 @router.get("/reportes/asistencia")
-def reporte_asistencia(fecha: str = None, tipo: str = None):
+def reporte_asistencia(fecha: str = None, tipo: str = None, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -274,7 +283,7 @@ def reporte_asistencia(fecha: str = None, tipo: str = None):
 # ── BUSCAR CÓDIGO POR NOMBRE ──────────────────────────────────────────────────
 
 @router.get("/codigos/buscar")
-def buscar_codigo(nombre: str):
+def buscar_codigo(nombre: str, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -313,7 +322,7 @@ class ApoderadoUpdate(BaseModel):
     apoderado_chat_id: str
 
 @router.get("/apoderados/lista")
-def lista_estudiantes_apoderados():
+def lista_estudiantes_apoderados(usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -343,7 +352,7 @@ def lista_estudiantes_apoderados():
         put_conn(conn)
 
 @router.put("/apoderados/actualizar")
-def actualizar_apoderado(data: ApoderadoUpdate):
+def actualizar_apoderado(data: ApoderadoUpdate, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -362,7 +371,7 @@ def actualizar_apoderado(data: ApoderadoUpdate):
         put_conn(conn)
 
 @router.post("/apoderados/probar-notificacion")
-def probar_notificacion(data: dict):
+def probar_notificacion(data: dict, usuario: str = Depends(verificar_token)):
     chat_id = data.get("chat_id")
     nombre = data.get("nombre", "Estudiante")
     if not chat_id:
@@ -396,7 +405,7 @@ class AuxiliarUpdate(AuxiliarCreate):
     id: int
 
 @router.get("/auxiliares/lista")
-def lista_auxiliares(busqueda: str = "", turno: str = ""):
+def lista_auxiliares(busqueda: str = "", turno: str = "", usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -437,7 +446,7 @@ def lista_auxiliares(busqueda: str = "", turno: str = ""):
         put_conn(conn)
 
 @router.post("/auxiliares/crear")
-def crear_auxiliar(data: AuxiliarCreate):
+def crear_auxiliar(data: AuxiliarCreate, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -468,7 +477,7 @@ def crear_auxiliar(data: AuxiliarCreate):
         put_conn(conn)
 
 @router.put("/auxiliares/actualizar")
-def actualizar_auxiliar(data: AuxiliarUpdate):
+def actualizar_auxiliar(data: AuxiliarUpdate, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -493,7 +502,7 @@ def actualizar_auxiliar(data: AuxiliarUpdate):
         put_conn(conn)
 
 @router.delete("/auxiliares/eliminar/{auxiliar_id}")
-def eliminar_auxiliar(auxiliar_id: int):
+def eliminar_auxiliar(auxiliar_id: int, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -514,7 +523,7 @@ class AuxiliarIngresoRequest(BaseModel):
     busqueda: str  # DNI o nombre
 
 @router.post("/auxiliares/ingreso")
-def ingreso_auxiliar(data: AuxiliarIngresoRequest):
+def ingreso_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -545,7 +554,7 @@ def ingreso_auxiliar(data: AuxiliarIngresoRequest):
         put_conn(conn)
 
 @router.post("/auxiliares/salida")
-def salida_auxiliar(data: AuxiliarIngresoRequest):
+def salida_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -584,7 +593,7 @@ def salida_auxiliar(data: AuxiliarIngresoRequest):
 # ── CARNETS ───────────────────────────────────────────────────────────────────
 
 @router.get("/carnets/lista")
-def lista_carnets(tipo: str = "Estudiante", busqueda: str = ""):
+def lista_carnets(tipo: str = "Estudiante", busqueda: str = "", usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -658,7 +667,7 @@ class FotocheckSave(BaseModel):
     imagen_carnet: str = ""
 
 @router.post("/fotochecks/guardar")
-def guardar_fotocheck(data: FotocheckSave):
+def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -687,7 +696,7 @@ def guardar_fotocheck(data: FotocheckSave):
         put_conn(conn)
 
 @router.get("/fotochecks/lista")
-def lista_fotochecks(busqueda: str = ""):
+def lista_fotochecks(busqueda: str = "", usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -719,7 +728,7 @@ def lista_fotochecks(busqueda: str = ""):
         put_conn(conn)
 
 @router.delete("/fotochecks/eliminar/{fotocheck_id}")
-def eliminar_fotocheck(fotocheck_id: int):
+def eliminar_fotocheck(fotocheck_id: int, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
