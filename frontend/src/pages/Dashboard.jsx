@@ -11,11 +11,14 @@ import CarnetsModule from '../components/CarnetsModule';
 import ApoderadosManager from '../components/ApoderadosManager';
 import useTheme from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import CambiarPassword from '../components/CambiarPassword';
 
 export default function Dashboard() {
   const [activeModule, setActiveModule] = useState(null);
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+
+  const [showCambiarPassword, setShowCambiarPassword] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('authenticated');
@@ -104,7 +107,13 @@ export default function Dashboard() {
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t border-theme">
+        <div className="p-4 border-t border-theme space-y-2">
+          <button
+            onClick={() => setShowCambiarPassword(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted hover:bg-theme3 transition text-sm font-medium"
+          >
+            <span>🔐</span> Cambiar Contraseña
+          </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#ef4444] hover:bg-[#ef444420] transition text-sm font-medium"
@@ -112,6 +121,11 @@ export default function Dashboard() {
             <span>🚪</span> Cerrar Sesión
           </button>
         </div>
+
+        {/* Modal cambiar contraseña */}
+        {showCambiarPassword && (
+          <CambiarPassword onClose={() => setShowCambiarPassword(false)} />
+        )}
       </aside>
 
       {/* Contenido principal */}

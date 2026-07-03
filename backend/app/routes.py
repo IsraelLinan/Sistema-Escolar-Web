@@ -792,3 +792,36 @@ def eliminar_fotocheck(fotocheck_id: int, usuario: str = Depends(verificar_token
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         put_conn(conn)
+        
+# ── CAMBIAR CONTRASEÑA ────────────────────────────────────────────────────────
+
+class CambiarPasswordRequest(BaseModel):
+    password_actual: str
+    password_nueva: str
+
+@router.post("/auth/cambiar-password")
+def cambiar_password(data: CambiarPasswordRequest, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT password FROM usuarios WHERE username = %s", (usuario,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        if not bcrypt.checkpw(data.password_actual.encode(), row[0].encode()):
+            raise HTTPException(status_code=401, detail="La contraseña actual es incorrecta")
+
+        nuevo_hash = bcrypt.hashpw(data.password_nueva.encode(), bcrypt.gensalt()).decode()
+        cur.execute("UPDATE usuarios SET password = %s WHERE username = %s",
+                    (nuevo_hash, usuario))
+        conn.commit()
+        cur.close()
+        return {"success": True, "message": "Contraseña actualizada correctamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
