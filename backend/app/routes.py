@@ -193,8 +193,41 @@ def salida_docente(data: IngresoRequest, usuario: str = Depends(verificar_token)
 def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
-        unique_id = hashlib.md5(data.nombre.encode()).hexdigest()
         cur = conn.cursor()
+
+        # Verificar duplicados
+        tabla = "estudiantes" if data.tipo_persona == "Estudiante" else "docentes"
+        cur.execute(
+            f"SELECT id, nombre, codigo_barras FROM {tabla} WHERE LOWER(nombre) = LOWER(%s)",
+            (data.nombre.strip(),)
+        )
+        existente = cur.fetchone()
+
+        if existente:
+            # Ya existe, devolver el código existente con su imagen
+            codigo = existente[2]
+            barcode_obj = barcode.get_barcode_class('code128')(codigo, writer=ImageWriter())
+            buffer = io.BytesIO()
+            barcode_obj.write(buffer)
+            img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            cur.close()
+            return {
+                "success": True,
+                "nombre": existente[1],
+                "codigo": codigo,
+                "imagen": f"data:image/png;base64,{img_base64}",
+                "duplicado": True,
+                "mensaje": f"'{existente[1]}' ya está registrado. Se muestra su código existente."
+            }
+
+        # No existe, crear nuevo
+        unique_id = hashlib.md5(data.nombre.strip().encode()).hexdigest()
+
+        # Verificar que el hash no esté ya en uso
+        cur.execute("SELECT id FROM personas WHERE codigo_barras = %s", (unique_id,))
+        if cur.fetchone():
+            unique_id = hashlib.md5((data.nombre.strip() + str(datetime.now())).encode()).hexdigest()
+
         cur.execute(
             "INSERT INTO personas (nombre_completo, codigo_barras, tipo_persona) VALUES (%s, %s, %s)",
             (data.nombre, unique_id, data.tipo_persona)
@@ -207,7 +240,6 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
                         (data.nombre, unique_id))
         conn.commit()
 
-        # Generar imagen del código en base64
         barcode_obj = barcode.get_barcode_class('code128')(unique_id, writer=ImageWriter())
         buffer = io.BytesIO()
         barcode_obj.write(buffer)
@@ -217,7 +249,9 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
             "success": True,
             "nombre": data.nombre,
             "codigo": unique_id,
-            "imagen": f"data:image/png;base64,{img_base64}"
+            "imagen": f"data:image/png;base64,{img_base64}",
+            "duplicado": False,
+            "mensaje": f"'{data.nombre}' registrado correctamente como {data.tipo_persona}."
         }
     except Exception as e:
         conn.rollback()
@@ -228,35 +262,30 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
 # ── REPORTES ──────────────────────────────────────────────────────────────────
 
 @router.get("/reportes/asistencia")
-def reporte_asistencia(fecha: str = None, tipo: str = None, usuario: str = Depends(verificar_token)):
+def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por_pagina: int = 20, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         fecha_filtro = fecha if fecha else date.today().isoformat()
 
-        query = """
+        cur.execute("""
             SELECT e.nombre, ie.hora_ingreso, ie.hora_salida, 'Estudiante' as tipo
             FROM ingresos_estudiantes ie
             JOIN estudiantes e ON e.id = ie.estudiante_id
             WHERE DATE(ie.hora_ingreso) = %s
-
             UNION ALL
-
             SELECT d.nombre, id2.hora_ingreso, id2.hora_salida, 'Docente' as tipo
             FROM ingresos_docentes id2
             JOIN docentes d ON d.id = id2.docente_id
             WHERE DATE(id2.hora_ingreso) = %s
-
             UNION ALL
-
             SELECT a.apellidos || ', ' || a.nombres, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
             FROM ingresos_auxiliares ia
             JOIN auxiliares a ON a.id = ia.auxiliar_id
             WHERE DATE(ia.hora_ingreso) = %s
-
             ORDER BY hora_ingreso
-        """
-        cur.execute(query, (fecha_filtro, fecha_filtro, fecha_filtro))
+        """, (fecha_filtro, fecha_filtro, fecha_filtro))
+
         rows = cur.fetchall()
         cur.close()
 
@@ -270,11 +299,22 @@ def reporte_asistencia(fecha: str = None, tipo: str = None, usuario: str = Depen
             for r in rows
         ]
 
-        # Filtrar por tipo si se especifica
         if tipo and tipo != 'Todos':
             registros = [r for r in registros if r['tipo'] == tipo]
 
-        return {"fecha": fecha_filtro, "registros": registros}
+        total = len(registros)
+        inicio = (pagina - 1) * por_pagina
+        fin = inicio + por_pagina
+        registros_paginados = registros[inicio:fin]
+
+        return {
+            "fecha": fecha_filtro,
+            "registros": registros_paginados,
+            "total": total,
+            "pagina": pagina,
+            "por_pagina": por_pagina,
+            "total_paginas": (total + por_pagina - 1) // por_pagina
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -696,7 +736,7 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
         put_conn(conn)
 
 @router.get("/fotochecks/lista")
-def lista_fotochecks(busqueda: str = "", usuario: str = Depends(verificar_token)):
+def lista_fotochecks(busqueda: str = "", pagina: int = 1, por_pagina: int = 12, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -709,18 +749,29 @@ def lista_fotochecks(busqueda: str = "", usuario: str = Depends(verificar_token)
         """, (f"%{busqueda.lower()}%",))
         rows = cur.fetchall()
         cur.close()
+
+        todos = [
+            {
+                "id": r[0], "nombre_escuela": r[1] or "",
+                "logo_escuela": r[2] or "", "nombre": r[3],
+                "grado": r[4] or "", "anio": r[5] or "2026",
+                "foto": r[6] or "", "codigo_barras": r[7] or "",
+                "imagen_carnet": r[8] or "",
+                "fecha": str(r[9])[:10] if r[9] else ""
+            }
+            for r in rows
+        ]
+
+        total = len(todos)
+        inicio = (pagina - 1) * por_pagina
+        fin = inicio + por_pagina
+
         return {
-            "fotochecks": [
-                {
-                    "id": r[0], "nombre_escuela": r[1] or "",
-                    "logo_escuela": r[2] or "", "nombre": r[3],
-                    "grado": r[4] or "", "anio": r[5] or "2026",
-                    "foto": r[6] or "", "codigo_barras": r[7] or "",
-                    "imagen_carnet": r[8] or "",
-                    "fecha": str(r[9])[:10] if r[9] else ""
-                }
-                for r in rows
-            ]
+            "fotochecks": todos[inicio:fin],
+            "total": total,
+            "pagina": pagina,
+            "por_pagina": por_pagina,
+            "total_paginas": (total + por_pagina - 1) // por_pagina
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

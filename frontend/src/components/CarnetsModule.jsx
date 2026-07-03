@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export default function CarnetsModule() {
@@ -11,17 +10,28 @@ export default function CarnetsModule() {
   const [imprimiendo, setImprimiendo] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [mensaje, setMensaje] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
+  const POR_PAGINA = 12;
   const carnetsRef = useRef({});
 
-  useEffect(() => { fetchFotochecks(); }, [busqueda]);
+  useEffect(() => {
+    setPagina(1);
+    fetchFotochecks(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
 
-  const fetchFotochecks = async () => {
+  const fetchFotochecks = async (pag = pagina) => {
     setLoading(true);
     try {
       const res = await axios.get('http://localhost:8000/fotochecks/lista', {
-        params: { busqueda }
+        params: { busqueda, pagina: pag, por_pagina: POR_PAGINA }
       });
       setFotochecks(res.data.fotochecks);
+      setTotal(res.data.total);
+      setTotalPaginas(res.data.total_paginas);
+      setPagina(res.data.pagina);
       setSeleccionados([]);
     } catch (e) {
       console.error(e);
@@ -86,10 +96,15 @@ export default function CarnetsModule() {
       await axios.delete(`http://localhost:8000/fotochecks/eliminar/${id}`);
       showMensaje('✔ Carnet eliminado.', 'success');
       setConfirmDelete(null);
-      fetchFotochecks();
+      fetchFotochecks(pagina);
     } catch (e) {
       showMensaje('Error al eliminar.', 'error');
     }
+  };
+
+  const handlePagina = (nueva) => {
+    if (nueva < 1 || nueva > totalPaginas) return;
+    fetchFotochecks(nueva);
   };
 
   return (
@@ -119,8 +134,7 @@ export default function CarnetsModule() {
       {/* Filtros */}
       <div className="bg-theme2 border border-theme rounded-2xl p-4 mb-4">
         <input
-          type="text"
-          value={busqueda}
+          type="text" value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           placeholder="🔍 Buscar por nombre del estudiante..."
           className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3b82f6]"
@@ -130,8 +144,8 @@ export default function CarnetsModule() {
       {/* Barra de acciones */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <p className="text-muted text-sm">
-          <span className="text-theme font-bold">{seleccionados.length}</span> seleccionados de{' '}
-          <span className="text-theme font-bold">{fotochecks.length}</span> carnets
+          <span className="text-theme font-bold">{seleccionados.length}</span> seleccionados •{' '}
+          <span className="text-theme font-bold">{total}</span> carnets en total
         </p>
         <div className="flex gap-3">
           <button
@@ -139,7 +153,7 @@ export default function CarnetsModule() {
             className="bg-theme3 hover:bg-theme border border-theme text-theme text-sm font-bold px-4 py-2 rounded-xl transition"
           >
             {seleccionados.length === fotochecks.length && fotochecks.length > 0
-              ? '✗ Deseleccionar Todos' : '✔ Seleccionar Todos'}
+              ? '✗ Deseleccionar' : '✔ Seleccionar página'}
           </button>
           <button
             onClick={imprimirSeleccionados}
@@ -161,24 +175,19 @@ export default function CarnetsModule() {
           <p className="text-xs mt-2">Genera carnets desde el módulo <strong>Generar Fotocheck Escolar</strong> y guárdalos aquí.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
           {fotochecks.map(c => (
             <div key={c.id} className="relative group">
-              {/* Checkbox */}
               <input
                 type="checkbox"
                 checked={seleccionados.includes(c.id)}
                 onChange={() => toggleSeleccion(c.id)}
                 className="absolute top-2 left-2 z-10 w-4 h-4 accent-[#3b82f6] cursor-pointer"
               />
-
-              {/* Botón eliminar */}
               <button
                 onClick={() => setConfirmDelete(c.id)}
                 className="absolute top-2 right-2 z-10 bg-[#ef444420] hover:bg-[#ef444440] border border-[#ef4444] text-[#ef4444] text-xs font-bold w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
               >✕</button>
-
-              {/* Imagen del carnet */}
               <div
                 ref={el => carnetsRef.current[c.id] = el}
                 onClick={() => toggleSeleccion(c.id)}
@@ -189,25 +198,68 @@ export default function CarnetsModule() {
                 }`}
               >
                 {c.imagen_carnet ? (
-                  <img
-                    src={c.imagen_carnet}
-                    alt={c.nombre}
-                    className="w-full rounded-xl shadow-md"
-                  />
+                  <img src={c.imagen_carnet} alt={c.nombre} className="w-full rounded-xl shadow-md" />
                 ) : (
                   <div className="bg-theme3 border border-theme rounded-xl p-4 text-center">
                     <span className="text-3xl">🪪</span>
                   </div>
                 )}
               </div>
-
-              {/* Nombre debajo */}
-              <p className="text-theme text-xs font-medium text-center mt-2 truncate px-1">
-                {c.nombre}
-              </p>
+              <p className="text-theme text-xs font-medium text-center mt-2 truncate px-1">{c.nombre}</p>
               <p className="text-muted text-xs text-center">{c.grado} • {c.anio}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPaginas > 1 && (
+        <div className="bg-theme2 border border-theme rounded-2xl p-4 flex items-center justify-between">
+          <p className="text-muted text-xs">
+            Página <span className="text-theme font-bold">{pagina}</span> de{' '}
+            <span className="text-theme font-bold">{totalPaginas}</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handlePagina(1)}
+              disabled={pagina === 1}
+              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+            >«</button>
+            <button
+              onClick={() => handlePagina(pagina - 1)}
+              disabled={pagina === 1}
+              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+            >‹</button>
+            {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPaginas || Math.abs(p - pagina) <= 1)
+              .map((p, idx, arr) => (
+                <>
+                  {idx > 0 && arr[idx - 1] !== p - 1 && (
+                    <span key={`dots-${p}`} className="text-muted px-1 py-2 text-xs">...</span>
+                  )}
+                  <button
+                    key={p}
+                    onClick={() => handlePagina(p)}
+                    className={`text-xs font-bold px-3 py-2 rounded-lg transition border ${
+                      p === pagina
+                        ? 'bg-[#3b82f6] border-[#3b82f6] text-white'
+                        : 'bg-theme3 hover:bg-theme border-theme text-theme'
+                    }`}
+                  >{p}</button>
+                </>
+              ))
+            }
+            <button
+              onClick={() => handlePagina(pagina + 1)}
+              disabled={pagina === totalPaginas}
+              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+            >›</button>
+            <button
+              onClick={() => handlePagina(totalPaginas)}
+              disabled={pagina === totalPaginas}
+              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+            >»</button>
+          </div>
         </div>
       )}
 

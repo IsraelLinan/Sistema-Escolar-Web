@@ -8,13 +8,23 @@ export default function WeeklyReports() {
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
   const [busquedaNombre, setBusquedaNombre] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totales, setTotales] = useState({ estudiantes: 0, docentes: 0, auxiliares: 0, general: 0 });
+  const POR_PAGINA = 20;
 
-  const fetchReporte = async () => {
+  const fetchReporte = async (pag = pagina) => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get(`http://localhost:8000/reportes/asistencia?fecha=${fecha}`);
+      const res = await axios.get(`http://localhost:8000/reportes/asistencia`, {
+        params: { fecha, tipo: filtro === 'Todos' ? null : filtro, pagina: pag, por_pagina: POR_PAGINA }
+      });
       setRegistros(res.data.registros);
+      setTotal(res.data.total);
+      setTotalPaginas(res.data.total_paginas);
+      setPagina(res.data.pagina);
     } catch (e) {
       setError(e.response?.data?.detail || 'Error al cargar el reporte.');
     } finally {
@@ -22,21 +32,41 @@ export default function WeeklyReports() {
     }
   };
 
+  const fetchTotales = async () => {
+    try {
+      const res = await axios.get(`http://localhost:8000/reportes/asistencia`, {
+        params: { fecha, por_pagina: 9999, pagina: 1 }
+      });
+      const todos = res.data.registros;
+      setTotales({
+        general: res.data.total,
+        estudiantes: todos.filter(r => r.tipo === 'Estudiante').length,
+        docentes: todos.filter(r => r.tipo === 'Docente').length,
+        auxiliares: todos.filter(r => r.tipo === 'Auxiliar').length,
+      });
+    } catch {}
+  };
+
+  useEffect(() => {
+    setPagina(1);
+    fetchReporte(1);
+    fetchTotales();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchReporte(); }, [fecha]);
+  }, [fecha, filtro]);
 
-  const registrosFiltrados = registros
-    .filter(r => filtro === 'Todos' || r.tipo === filtro)
-    .filter(r => r.nombre.toLowerCase().includes(busquedaNombre.toLowerCase()));
-
-  const totalEstudiantes = registros.filter(r => r.tipo === 'Estudiante').length;
-  const totalDocentes    = registros.filter(r => r.tipo === 'Docente').length;
-  const totalAuxiliares  = registros.filter(r => r.tipo === 'Auxiliar').length;
+  const registrosFiltrados = registros.filter(r =>
+    r.nombre.toLowerCase().includes(busquedaNombre.toLowerCase())
+  );
 
   const tipoColor = (tipo) => {
     if (tipo === 'Estudiante') return 'bg-[#4f8ef720] text-[#4f8ef7]';
     if (tipo === 'Docente')    return 'bg-[#22c55e20] text-[#22c55e]';
     return 'bg-[#10b98120] text-[#10b981]';
+  };
+
+  const handlePagina = (nueva) => {
+    if (nueva < 1 || nueva > totalPaginas) return;
+    fetchReporte(nueva);
   };
 
   return (
@@ -58,17 +88,14 @@ export default function WeeklyReports() {
           <div className="flex-1">
             <label className="block text-muted text-xs font-bold uppercase mb-2">Fecha</label>
             <input
-              type="date"
-              value={fecha}
+              type="date" value={fecha}
               onChange={e => setFecha(e.target.value)}
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#f59e0b]"
             />
           </div>
           <div className="flex-1">
             <label className="block text-muted text-xs font-bold uppercase mb-2">Filtrar por</label>
-            <select
-              value={filtro}
-              onChange={e => setFiltro(e.target.value)}
+            <select value={filtro} onChange={e => setFiltro(e.target.value)}
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#f59e0b]"
             >
               <option value="Todos">Todos</option>
@@ -80,16 +107,14 @@ export default function WeeklyReports() {
           <div className="flex-1">
             <label className="block text-muted text-xs font-bold uppercase mb-2">Buscar por nombre</label>
             <input
-              type="text"
-              value={busquedaNombre}
+              type="text" value={busquedaNombre}
               onChange={e => setBusquedaNombre(e.target.value)}
               placeholder="🔍 Nombre..."
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#f59e0b]"
             />
           </div>
           <div className="flex-shrink-0 mt-5">
-            <button
-              onClick={fetchReporte}
+            <button onClick={() => fetchReporte(1)}
               className="bg-[#f59e0b] hover:bg-[#d97706] text-white font-bold px-6 py-3 rounded-xl transition text-sm"
             >
               🔄 Actualizar
@@ -101,10 +126,10 @@ export default function WeeklyReports() {
       {/* Métricas */}
       <div className="grid grid-cols-4 gap-4 mb-4">
         {[
-          { label: 'Total Ingresos', value: registros.length, color: '#4f8ef7' },
-          { label: 'Estudiantes',    value: totalEstudiantes,  color: '#22c55e' },
-          { label: 'Docentes',       value: totalDocentes,     color: '#f59e0b' },
-          { label: 'Auxiliares',     value: totalAuxiliares,   color: '#10b981' },
+          { label: 'Total Ingresos', value: totales.general,      color: '#4f8ef7' },
+          { label: 'Estudiantes',    value: totales.estudiantes,   color: '#22c55e' },
+          { label: 'Docentes',       value: totales.docentes,      color: '#f59e0b' },
+          { label: 'Auxiliares',     value: totales.auxiliares,    color: '#10b981' },
         ].map(m => (
           <div key={m.label} className="bg-theme2 border border-theme rounded-2xl p-4 text-center">
             <p className="text-muted text-xs font-bold uppercase mb-1">{m.label}</p>
@@ -115,12 +140,13 @@ export default function WeeklyReports() {
 
       {/* Tabla */}
       <div className="bg-theme2 border border-theme rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-theme">
+        <div className="p-4 border-b border-theme flex items-center justify-between">
           <p className="text-theme font-bold text-sm">
             Registros del {new Date(fecha + 'T00:00:00').toLocaleDateString('es-PE', {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             })}
           </p>
+          <p className="text-muted text-xs">{total} registros en total</p>
         </div>
 
         {loading ? (
@@ -157,6 +183,57 @@ export default function WeeklyReports() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <div className="p-4 border-t border-theme flex items-center justify-between">
+            <p className="text-muted text-xs">
+              Página <span className="text-theme font-bold">{pagina}</span> de{' '}
+              <span className="text-theme font-bold">{totalPaginas}</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePagina(1)}
+                disabled={pagina === 1}
+                className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+              >«</button>
+              <button
+                onClick={() => handlePagina(pagina - 1)}
+                disabled={pagina === 1}
+                className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+              >‹ Anterior</button>
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPaginas || Math.abs(p - pagina) <= 1)
+                .map((p, idx, arr) => (
+                  <>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span key={`dots-${p}`} className="text-muted px-1 py-2 text-xs">...</span>
+                    )}
+                    <button
+                      key={p}
+                      onClick={() => handlePagina(p)}
+                      className={`text-xs font-bold px-3 py-2 rounded-lg transition border ${
+                        p === pagina
+                          ? 'bg-[#f59e0b] border-[#f59e0b] text-white'
+                          : 'bg-theme3 hover:bg-theme border-theme text-theme'
+                      }`}
+                    >{p}</button>
+                  </>
+                ))
+              }
+              <button
+                onClick={() => handlePagina(pagina + 1)}
+                disabled={pagina === totalPaginas}
+                className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+              >Siguiente ›</button>
+              <button
+                onClick={() => handlePagina(totalPaginas)}
+                disabled={pagina === totalPaginas}
+                className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
+              >»</button>
+            </div>
           </div>
         )}
       </div>

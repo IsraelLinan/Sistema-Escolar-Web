@@ -37,7 +37,6 @@ export default function BarcodeGenerator() {
         <head><title>Código de Barra - ${resultado.nombre}</title></head>
         <body style="text-align:center; padding:40px; font-family:sans-serif;">
           <h2>${resultado.nombre}</h2>
-          <p>${resultado.tipo}</p>
           <img src="${resultado.imagen}" style="max-width:400px;" />
           <p style="font-size:12px; color:#666;">${resultado.codigo}</p>
           <script>window.print(); window.close();</script>
@@ -80,8 +79,7 @@ export default function BarcodeGenerator() {
           {['Estudiante', 'Docente'].map(t => (
             <label key={t} className="flex items-center gap-2 cursor-pointer">
               <input
-                type="radio"
-                value={t}
+                type="radio" value={t}
                 checked={tipo === t}
                 onChange={() => setTipo(t)}
                 className="accent-[#a855f7] w-4 h-4"
@@ -91,6 +89,7 @@ export default function BarcodeGenerator() {
           ))}
         </div>
 
+        {/* Error */}
         {error && (
           <div className="mb-4 bg-[#ef444420] border border-[#ef4444] text-[#ef4444] rounded-xl px-4 py-2 text-sm">
             ✗ {error}
@@ -102,7 +101,7 @@ export default function BarcodeGenerator() {
           disabled={loading}
           className="w-full bg-[#a855f7] hover:bg-[#9333ea] text-white font-bold py-3 rounded-xl transition disabled:opacity-50 text-sm"
         >
-          {loading ? 'Generando...' : '⊕ Generar y Registrar Código'}
+          {loading ? 'Procesando...' : '⊕ Generar y Registrar Código'}
         </button>
       </div>
 
@@ -113,8 +112,18 @@ export default function BarcodeGenerator() {
 
         {resultado ? (
           <div className="text-center">
+            {/* Aviso duplicado o nuevo */}
+            {resultado.duplicado ? (
+              <div className="mb-4 bg-[#f59e0b20] border border-[#f59e0b] text-[#f59e0b] rounded-xl px-4 py-3 text-sm">
+                ⚠️ {resultado.mensaje}
+              </div>
+            ) : (
+              <div className="mb-4 bg-[#22c55e20] border border-[#22c55e] text-[#22c55e] rounded-xl px-4 py-3 text-sm">
+                ✔ {resultado.mensaje}
+              </div>
+            )}
+
             <p className="text-theme font-bold mb-1">{resultado.nombre}</p>
-            <p className="text-muted text-xs mb-4">{resultado.tipo_persona}</p>
             <img
               src={resultado.imagen}
               alt="Código de barras"
