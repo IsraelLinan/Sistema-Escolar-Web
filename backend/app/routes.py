@@ -825,3 +825,280 @@ def cambiar_password(data: CambiarPasswordRequest, usuario: str = Depends(verifi
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         put_conn(conn)
+        
+# ── AGENDA ESCOLAR ────────────────────────────────────────────────────────────
+
+class EventoCreate(BaseModel):
+    titulo: str
+    descripcion: str = ""
+    fecha_inicio: str
+    fecha_fin: str = ""
+    hora_inicio: str = ""
+    hora_fin: str = ""
+    tipo: str = "general"
+    color: str = "#4f8ef7"
+    todo_el_dia: bool = True
+
+class EventoUpdate(EventoCreate):
+    id: int
+
+@router.get("/agenda/eventos")
+def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        if mes and anio:
+            cur.execute("""
+                SELECT id, titulo, descripcion, fecha_inicio, fecha_fin,
+                       hora_inicio, hora_fin, tipo, color, todo_el_dia
+                FROM eventos_agenda
+                WHERE EXTRACT(MONTH FROM fecha_inicio) = %s
+                  AND EXTRACT(YEAR FROM fecha_inicio) = %s
+                ORDER BY fecha_inicio, hora_inicio
+            """, (mes, anio))
+        else:
+            cur.execute("""
+                SELECT id, titulo, descripcion, fecha_inicio, fecha_fin,
+                       hora_inicio, hora_fin, tipo, color, todo_el_dia
+                FROM eventos_agenda
+                ORDER BY fecha_inicio DESC
+            """)
+        rows = cur.fetchall()
+        cur.close()
+        return {
+            "eventos": [
+                {
+                    "id": r[0], "titulo": r[1], "descripcion": r[2] or "",
+                    "fecha_inicio": str(r[3]), "fecha_fin": str(r[4]) if r[4] else "",
+                    "hora_inicio": str(r[5]) if r[5] else "",
+                    "hora_fin": str(r[6]) if r[6] else "",
+                    "tipo": r[7], "color": r[8], "todo_el_dia": r[9]
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.post("/agenda/crear")
+def crear_evento(data: EventoCreate, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO eventos_agenda (titulo, descripcion, fecha_inicio, fecha_fin,
+                hora_inicio, hora_fin, tipo, color, todo_el_dia)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.titulo, data.descripcion, data.fecha_inicio,
+            data.fecha_fin or None, data.hora_inicio or None,
+            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia
+        ))
+        eid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        return {"success": True, "id": eid}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.put("/agenda/actualizar")
+def actualizar_evento(data: EventoUpdate, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE eventos_agenda SET titulo=%s, descripcion=%s, fecha_inicio=%s,
+                fecha_fin=%s, hora_inicio=%s, hora_fin=%s, tipo=%s, color=%s, todo_el_dia=%s
+            WHERE id=%s
+        """, (
+            data.titulo, data.descripcion, data.fecha_inicio,
+            data.fecha_fin or None, data.hora_inicio or None,
+            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia, data.id
+        ))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.delete("/agenda/eliminar/{evento_id}")
+def eliminar_evento(evento_id: int, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM eventos_agenda WHERE id = %s", (evento_id,))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+# ── CUADRO DE NOTAS ───────────────────────────────────────────────────────────
+
+class NotaCreate(BaseModel):
+    estudiante_id: int
+    materia_id: int
+    anio: str = "2026"
+    bimestre: int
+    nota: float
+    observacion: str = ""
+
+class MateriaCreate(BaseModel):
+    nombre: str
+    grado: str = "General"
+
+@router.get("/notas/materias")
+def lista_materias(usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, nombre, grado FROM materias ORDER BY nombre")
+        rows = cur.fetchall()
+        cur.close()
+        return {"materias": [{"id": r[0], "nombre": r[1], "grado": r[2]} for r in rows]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.post("/notas/materias/crear")
+def crear_materia(data: MateriaCreate, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO materias (nombre, grado) VALUES (%s, %s) RETURNING id",
+                    (data.nombre, data.grado))
+        mid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        return {"success": True, "id": mid}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.delete("/notas/materias/eliminar/{materia_id}")
+def eliminar_materia(materia_id: int, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM materias WHERE id = %s", (materia_id,))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.get("/notas/cuadro")
+def cuadro_notas(anio: str = "2026", materia_id: int = None, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT e.id, e.nombre,
+                MAX(CASE WHEN n.bimestre = 1 THEN n.nota END) as b1,
+                MAX(CASE WHEN n.bimestre = 2 THEN n.nota END) as b2,
+                MAX(CASE WHEN n.bimestre = 3 THEN n.nota END) as b3,
+                MAX(CASE WHEN n.bimestre = 4 THEN n.nota END) as b4,
+                AVG(n.nota) as promedio
+            FROM estudiantes e
+            LEFT JOIN notas n ON n.estudiante_id = e.id
+                AND n.anio = %s
+                AND (%s IS NULL OR n.materia_id = %s)
+            GROUP BY e.id, e.nombre
+            ORDER BY e.nombre
+        """, (anio, materia_id, materia_id))
+        rows = cur.fetchall()
+        cur.close()
+        return {
+            "estudiantes": [
+                {
+                    "id": r[0], "nombre": r[1],
+                    "b1": float(r[2]) if r[2] else None,
+                    "b2": float(r[3]) if r[3] else None,
+                    "b3": float(r[4]) if r[4] else None,
+                    "b4": float(r[5]) if r[5] else None,
+                    "promedio": round(float(r[6]), 1) if r[6] else None
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.post("/notas/guardar")
+def guardar_nota(data: NotaCreate, usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO notas (estudiante_id, materia_id, anio, bimestre, nota, observacion)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (estudiante_id, materia_id, anio, bimestre)
+            DO UPDATE SET nota = EXCLUDED.nota, observacion = EXCLUDED.observacion
+        """, (data.estudiante_id, data.materia_id, data.anio,
+              data.bimestre, data.nota, data.observacion))
+        conn.commit()
+        cur.close()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+
+@router.get("/notas/estudiante/{estudiante_id}")
+def notas_estudiante(estudiante_id: int, anio: str = "2026", usuario: str = Depends(verificar_token)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT m.id, m.nombre, m.grado,
+                MAX(CASE WHEN n.bimestre = 1 THEN n.nota END) as b1,
+                MAX(CASE WHEN n.bimestre = 2 THEN n.nota END) as b2,
+                MAX(CASE WHEN n.bimestre = 3 THEN n.nota END) as b3,
+                MAX(CASE WHEN n.bimestre = 4 THEN n.nota END) as b4,
+                AVG(n.nota) as promedio
+            FROM materias m
+            LEFT JOIN notas n ON n.materia_id = m.id
+                AND n.estudiante_id = %s AND n.anio = %s
+            GROUP BY m.id, m.nombre, m.grado
+            ORDER BY m.nombre
+        """, (estudiante_id, anio))
+        rows = cur.fetchall()
+        cur.close()
+        return {
+            "notas": [
+                {
+                    "materia_id": r[0], "materia": r[1], "grado": r[2],
+                    "b1": float(r[3]) if r[3] else None,
+                    "b2": float(r[4]) if r[4] else None,
+                    "b3": float(r[5]) if r[5] else None,
+                    "b4": float(r[6]) if r[6] else None,
+                    "promedio": round(float(r[7]), 1) if r[7] else None
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)

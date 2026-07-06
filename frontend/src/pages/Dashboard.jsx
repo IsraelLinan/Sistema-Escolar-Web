@@ -9,6 +9,8 @@ import WeeklyReports from '../components/WeeklyReports';
 import FotocheckGenerator from '../components/FotocheckGenerator';
 import CarnetsModule from '../components/CarnetsModule';
 import ApoderadosManager from '../components/ApoderadosManager';
+import AgendaEscolar from '../components/AgendaEscolar';
+import CuadroNotas from '../components/CuadroNotas';
 import useTheme from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
 import CambiarPassword from '../components/CambiarPassword';
@@ -17,7 +19,6 @@ export default function Dashboard() {
   const [activeModule, setActiveModule] = useState(null);
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-
   const [showCambiarPassword, setShowCambiarPassword] = useState(false);
 
   const handleLogout = () => {
@@ -37,6 +38,8 @@ export default function Dashboard() {
       case 'fotocheck':             return <FotocheckGenerator />;
       case 'carnets':               return <CarnetsModule />;
       case 'apoderados':            return <ApoderadosManager />;
+      case 'agenda':                return <AgendaEscolar />;
+      case 'notas':                 return <CuadroNotas />;
       default:                      return null;
     }
   };
@@ -78,6 +81,7 @@ export default function Dashboard() {
         {/* Navegación */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
 
+          {/* Asistencia */}
           <p className="text-muted text-xs font-bold uppercase mb-2 px-2 pt-2">Asistencia</p>
           <NavButton id="estudiantes"           icon="🎓"  label="Asistencia de Estudiantes" color="#4f8ef7" />
           <NavButton id="docentes"              icon="👨‍🏫" label="Asistencia de Docentes"    color="#22c55e" />
@@ -86,15 +90,24 @@ export default function Dashboard() {
 
           <div className="border-t border-theme my-3" />
 
+          {/* Gestión General */}
           <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Gestión General</p>
           <NavButton id="auxiliares" icon="👷"  label="Registro de Auxiliares"    color="#8b5cf6" />
           <NavButton id="codigos"    icon="🏷️" label="Generar Código de Barra"   color="#a855f7" />
           <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck Escolar" color="#06b6d4" />
-          <NavButton id="carnets" icon="🪪" label="Carnets" color="#3b82f6" />
+          <NavButton id="carnets"    icon="🖼️" label="Carnets"                   color="#3b82f6" />
           <NavButton id="apoderados" icon="👨‍👩‍👧" label="Gestión de Apoderados"    color="#f43f5e" />
 
           <div className="border-t border-theme my-3" />
 
+          {/* Académico */}
+          <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Académico</p>
+          <NavButton id="agenda" icon="📅" label="Agenda Escolar"  color="#6366f1" />
+          <NavButton id="notas"  icon="📊" label="Cuadro de Notas" color="#ec4899" />
+
+          <div className="border-t border-theme my-3" />
+
+          {/* Herramientas */}
           <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Herramientas</p>
           <button
             onClick={() => window.open('http://localhost:8501', '_blank')}
