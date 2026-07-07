@@ -75,7 +75,17 @@ def ingreso_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_to
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
         estudiante_id, nombre, chat_id = row
-        cur.execute("INSERT INTO ingresos_estudiantes (estudiante_id, hora_ingreso) VALUES (%s, %s)", (estudiante_id, now_lima()))
+
+        # Verificar si ya registró ingreso hoy
+        cur.execute("""
+            SELECT id FROM ingresos_estudiantes
+            WHERE estudiante_id = %s AND DATE(hora_ingreso) = %s
+        """, (estudiante_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre} ya registró su ingreso hoy")
+
+        cur.execute("INSERT INTO ingresos_estudiantes (estudiante_id, hora_ingreso) VALUES (%s, %s)",
+                    (estudiante_id, now_lima()))
         conn.commit()
         hora = now_lima().strftime('%H:%M:%S')
         cur.close()
@@ -104,10 +114,20 @@ def salida_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_tok
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
         estudiante_id, nombre, chat_id = row
-        cur.execute(
-            "SELECT id FROM ingresos_estudiantes WHERE estudiante_id = %s AND hora_salida IS NULL ORDER BY hora_ingreso DESC LIMIT 1",
-            (estudiante_id,)
-        )
+
+        # Verificar si ya registró salida hoy
+        cur.execute("""
+            SELECT id FROM ingresos_estudiantes
+            WHERE estudiante_id = %s AND DATE(hora_ingreso) = %s AND hora_salida IS NOT NULL
+        """, (estudiante_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre} ya registró su salida hoy")
+
+        cur.execute("""
+            SELECT id FROM ingresos_estudiantes
+            WHERE estudiante_id = %s AND hora_salida IS NULL
+            ORDER BY hora_ingreso DESC LIMIT 1
+        """, (estudiante_id,))
         ingreso = cur.fetchone()
         if not ingreso:
             raise HTTPException(status_code=400, detail="No hay ingreso pendiente para este estudiante")
@@ -143,7 +163,17 @@ def ingreso_docente(data: IngresoRequest, usuario: str = Depends(verificar_token
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
         docente_id, nombre = row
-        cur.execute("INSERT INTO ingresos_docentes (docente_id, hora_ingreso) VALUES (%s, %s)", (docente_id, now_lima()))
+
+        # Verificar si ya registró ingreso hoy
+        cur.execute("""
+            SELECT id FROM ingresos_docentes
+            WHERE docente_id = %s AND DATE(hora_ingreso) = %s
+        """, (docente_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre} ya registró su ingreso hoy")
+
+        cur.execute("INSERT INTO ingresos_docentes (docente_id, hora_ingreso) VALUES (%s, %s)",
+                    (docente_id, now_lima()))
         conn.commit()
         hora = datetime.now().strftime('%H:%M:%S')
         cur.close()
@@ -166,15 +196,25 @@ def salida_docente(data: IngresoRequest, usuario: str = Depends(verificar_token)
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
         docente_id, nombre = row
-        cur.execute(
-            "SELECT id FROM ingresos_docentes WHERE docente_id = %s AND hora_salida IS NULL ORDER BY hora_ingreso DESC LIMIT 1",
-            (docente_id,)
-        )
+
+        # Verificar si ya registró salida hoy
+        cur.execute("""
+            SELECT id FROM ingresos_docentes
+            WHERE docente_id = %s AND DATE(hora_ingreso) = %s AND hora_salida IS NOT NULL
+        """, (docente_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre} ya registró su salida hoy")
+
+        cur.execute("""
+            SELECT id FROM ingresos_docentes
+            WHERE docente_id = %s AND hora_salida IS NULL
+            ORDER BY hora_ingreso DESC LIMIT 1
+        """, (docente_id,))
         ingreso = cur.fetchone()
         if not ingreso:
             raise HTTPException(status_code=400, detail="No hay ingreso pendiente para este docente")
         cur.execute("UPDATE ingresos_docentes SET hora_salida = %s WHERE id = %s",
-                    (datetime.now(), ingreso[0]))
+                    (now_lima(), ingreso[0]))
         conn.commit()
         hora = datetime.now().strftime('%H:%M:%S')
         cur.close()
@@ -577,10 +617,17 @@ def ingreso_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verifi
             raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
         auxiliar_id, nombres, apellidos = row
         nombre_completo = f"{apellidos}, {nombres}"
+
+        # Verificar si ya registró ingreso hoy
         cur.execute("""
-            INSERT INTO ingresos_auxiliares (auxiliar_id, hora_ingreso)
-            VALUES (%s, %s)
-        """, (auxiliar_id, now_lima()))
+            SELECT id FROM ingresos_auxiliares
+            WHERE auxiliar_id = %s AND DATE(hora_ingreso) = %s
+        """, (auxiliar_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre_completo} ya registró su ingreso hoy")
+
+        cur.execute("INSERT INTO ingresos_auxiliares (auxiliar_id, hora_ingreso) VALUES (%s, %s)",
+                    (auxiliar_id, now_lima()))
         conn.commit()
         hora = now_lima().strftime('%H:%M:%S')
         cur.close()
@@ -608,6 +655,15 @@ def salida_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verific
             raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
         auxiliar_id, nombres, apellidos = row
         nombre_completo = f"{apellidos}, {nombres}"
+
+        # Verificar si ya registró salida hoy
+        cur.execute("""
+            SELECT id FROM ingresos_auxiliares
+            WHERE auxiliar_id = %s AND DATE(hora_ingreso) = %s AND hora_salida IS NOT NULL
+        """, (auxiliar_id, now_lima().date()))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"{nombre_completo} ya registró su salida hoy")
+
         cur.execute("""
             SELECT id FROM ingresos_auxiliares
             WHERE auxiliar_id = %s AND hora_salida IS NULL
