@@ -838,6 +838,7 @@ class EventoCreate(BaseModel):
     tipo: str = "general"
     color: str = "#4f8ef7"
     todo_el_dia: bool = True
+    imagen: str = ""
 
 class EventoUpdate(EventoCreate):
     id: int
@@ -850,7 +851,7 @@ def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(veri
         if mes and anio:
             cur.execute("""
                 SELECT id, titulo, descripcion, fecha_inicio, fecha_fin,
-                       hora_inicio, hora_fin, tipo, color, todo_el_dia
+                       hora_inicio, hora_fin, tipo, color, todo_el_dia, imagen
                 FROM eventos_agenda
                 WHERE EXTRACT(MONTH FROM fecha_inicio) = %s
                   AND EXTRACT(YEAR FROM fecha_inicio) = %s
@@ -872,7 +873,8 @@ def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(veri
                     "fecha_inicio": str(r[3]), "fecha_fin": str(r[4]) if r[4] else "",
                     "hora_inicio": str(r[5]) if r[5] else "",
                     "hora_fin": str(r[6]) if r[6] else "",
-                    "tipo": r[7], "color": r[8], "todo_el_dia": r[9]
+                    "tipo": r[7], "color": r[8], "todo_el_dia": r[9],
+                    "imagen": r[10] or ""
                 }
                 for r in rows
             ]
@@ -889,13 +891,13 @@ def crear_evento(data: EventoCreate, usuario: str = Depends(verificar_token)):
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO eventos_agenda (titulo, descripcion, fecha_inicio, fecha_fin,
-                hora_inicio, hora_fin, tipo, color, todo_el_dia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                hora_inicio, hora_fin, tipo, color, todo_el_dia, imagen)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             data.titulo, data.descripcion, data.fecha_inicio,
             data.fecha_fin or None, data.hora_inicio or None,
-            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia
+            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia, data.imagen or None,
         ))
         eid = cur.fetchone()[0]
         conn.commit()
@@ -914,12 +916,12 @@ def actualizar_evento(data: EventoUpdate, usuario: str = Depends(verificar_token
         cur = conn.cursor()
         cur.execute("""
             UPDATE eventos_agenda SET titulo=%s, descripcion=%s, fecha_inicio=%s,
-                fecha_fin=%s, hora_inicio=%s, hora_fin=%s, tipo=%s, color=%s, todo_el_dia=%s
+                fecha_fin=%s, hora_inicio=%s, hora_fin=%s, tipo=%s, color=%s, todo_el_dia=%s, imagen=%s
             WHERE id=%s
         """, (
             data.titulo, data.descripcion, data.fecha_inicio,
             data.fecha_fin or None, data.hora_inicio or None,
-            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia, data.id
+            data.hora_fin or None, data.tipo, data.color, data.todo_el_dia, data.imagen or None, data.id
         ))
         conn.commit()
         cur.close()
@@ -1006,12 +1008,22 @@ def eliminar_materia(materia_id: int, usuario: str = Depends(verificar_token)):
         put_conn(conn)
 
 @router.get("/notas/cuadro")
-def cuadro_notas(anio: str = "2026", materia_id: int = None, usuario: str = Depends(verificar_token)):
+def cuadro_notas(anio: str = "2026", materia_id: int = None, grado: str = None, seccion: str = None, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
+
+        # Obtener grados y secciones disponibles
         cur.execute("""
-            SELECT e.id, e.nombre,
+            SELECT DISTINCT grado, seccion FROM estudiantes
+            WHERE grado IS NOT NULL
+            ORDER BY grado, seccion
+        """)
+        grados_rows = cur.fetchall()
+
+        # Cuadro de notas con filtros
+        query = """
+            SELECT e.id, e.nombre, e.grado, e.seccion,
                 MAX(CASE WHEN n.bimestre = 1 THEN n.nota END) as b1,
                 MAX(CASE WHEN n.bimestre = 2 THEN n.nota END) as b2,
                 MAX(CASE WHEN n.bimestre = 3 THEN n.nota END) as b3,
@@ -1020,24 +1032,38 @@ def cuadro_notas(anio: str = "2026", materia_id: int = None, usuario: str = Depe
             FROM estudiantes e
             LEFT JOIN notas n ON n.estudiante_id = e.id
                 AND n.anio = %s
-                AND (%s IS NULL OR n.materia_id = %s)
-            GROUP BY e.id, e.nombre
-            ORDER BY e.nombre
-        """, (anio, materia_id, materia_id))
+                AND (%s::integer IS NULL OR n.materia_id = %s)
+            WHERE 1=1
+        """
+        params = [anio, materia_id, materia_id]
+
+        if grado:
+            query += " AND e.grado = %s"
+            params.append(grado)
+        if seccion:
+            query += " AND e.seccion = %s"
+            params.append(seccion)
+
+        query += " GROUP BY e.id, e.nombre, e.grado, e.seccion ORDER BY e.grado, e.seccion, e.nombre"
+
+        cur.execute(query, params)
         rows = cur.fetchall()
         cur.close()
+
         return {
             "estudiantes": [
                 {
                     "id": r[0], "nombre": r[1],
-                    "b1": float(r[2]) if r[2] else None,
-                    "b2": float(r[3]) if r[3] else None,
-                    "b3": float(r[4]) if r[4] else None,
-                    "b4": float(r[5]) if r[5] else None,
-                    "promedio": round(float(r[6]), 1) if r[6] else None
+                    "grado": r[2] or "", "seccion": r[3] or "",
+                    "b1": float(r[4]) if r[4] else None,
+                    "b2": float(r[5]) if r[5] else None,
+                    "b3": float(r[6]) if r[6] else None,
+                    "b4": float(r[7]) if r[7] else None,
+                    "promedio": round(float(r[8]), 1) if r[8] else None
                 }
                 for r in rows
-            ]
+            ],
+            "grados": [{"grado": r[0], "seccion": r[1]} for r in grados_rows]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

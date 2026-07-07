@@ -16,7 +16,7 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 const initialForm = {
   titulo: '', descripcion: '', fecha_inicio: '',
   fecha_fin: '', hora_inicio: '', hora_fin: '',
-  tipo: 'general', color: '#4f8ef7', todo_el_dia: true
+  tipo: 'general', color: '#4f8ef7', todo_el_dia: true, imagen: ''
 };
 
 export default function AgendaEscolar() {
@@ -80,7 +80,8 @@ export default function AgendaEscolar() {
       titulo: ev.titulo, descripcion: ev.descripcion,
       fecha_inicio: ev.fecha_inicio, fecha_fin: ev.fecha_fin,
       hora_inicio: ev.hora_inicio, hora_fin: ev.hora_fin,
-      tipo: ev.tipo, color: ev.color, todo_el_dia: ev.todo_el_dia
+      tipo: ev.tipo, color: ev.color, todo_el_dia: ev.todo_el_dia,
+      imagen: ev.imagen || ''
     });
     setEditando(ev.id);
     setShowForm(true);
@@ -94,6 +95,15 @@ export default function AgendaEscolar() {
       fetchEventos();
     } catch (e) {
       showMensaje('Error al eliminar.', 'error');
+    }
+  };
+
+  const handleImagen = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setForm(f => ({ ...f, imagen: ev.target.result }));
+      reader.readAsDataURL(file);
     }
   };
 
@@ -292,6 +302,12 @@ export default function AgendaEscolar() {
                     {ev.descripcion && (
                       <p className="text-muted text-xs mt-1 ml-5">{ev.descripcion}</p>
                     )}
+                    {ev.imagen && (
+                      <img
+                        src={ev.imagen} alt="evento"
+                        className="w-full h-28 object-cover rounded-xl mt-2 border border-theme"
+                      />
+                    )}
                     {!ev.todo_el_dia && ev.hora_inicio && (
                       <p className="text-muted text-xs mt-1 ml-5">
                         🕐 {ev.hora_inicio}{ev.hora_fin ? ` - ${ev.hora_fin}` : ''}
@@ -414,6 +430,29 @@ export default function AgendaEscolar() {
                   rows={2} placeholder="Detalles del evento..."
                   className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#6366f1] resize-none"
                 />
+              </div>
+
+              {/* Imagen */}
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Imagen del Evento</label>
+                {form.imagen ? (
+                  <div className="relative">
+                    <img
+                      src={form.imagen} alt="preview"
+                      className="w-full h-40 object-cover rounded-xl border border-theme mb-2"
+                    />
+                    <button
+                      onClick={() => setForm(f => ({ ...f, imagen: '' }))}
+                      className="absolute top-2 right-2 bg-[#ef444420] hover:bg-[#ef444440] border border-[#ef4444] text-[#ef4444] text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center transition"
+                    >✕</button>
+                  </div>
+                ) : (
+                  <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#6366f1] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+                    <span>🖼️</span>
+                    <span>Haz clic para subir una imagen</span>
+                    <input type="file" accept="image/*" onChange={handleImagen} className="hidden" />
+                  </label>
+                )}
               </div>
             </div>
 

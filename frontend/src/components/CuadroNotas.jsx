@@ -4,7 +4,10 @@ import axios from 'axios';
 export default function CuadroNotas() {
   const [materias, setMaterias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
+  const [grados, setGrados] = useState([]);
   const [materiaSeleccionada, setMateriaSeleccionada] = useState('');
+  const [gradoSeleccionado, setGradoSeleccionado] = useState('');
+  const [seccionSeleccionada, setSeccionSeleccionada] = useState('');
   const [anio, setAnio] = useState('2026');
   const [loading, setLoading] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -13,12 +16,14 @@ export default function CuadroNotas() {
   const [mensaje, setMensaje] = useState(null);
   const [showMaterias, setShowMaterias] = useState(false);
   const [nuevaMateria, setNuevaMateria] = useState('');
-  const [nuevoGrado, setNuevoGrado] = useState('General');
   const [estudianteDetalle, setEstudianteDetalle] = useState(null);
   const [notasDetalle, setNotasDetalle] = useState([]);
 
   useEffect(() => { fetchMaterias(); }, []);
-  useEffect(() => { if (materiaSeleccionada) fetchCuadro(); }, [materiaSeleccionada, anio]);
+  useEffect(() => {
+    if (materiaSeleccionada) fetchCuadro();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materiaSeleccionada, anio, gradoSeleccionado, seccionSeleccionada]);
 
   const fetchMaterias = async () => {
     try {
@@ -33,10 +38,12 @@ export default function CuadroNotas() {
   const fetchCuadro = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/notas/cuadro', {
-        params: { anio, materia_id: materiaSeleccionada }
-      });
+      const params = { anio, materia_id: materiaSeleccionada };
+      if (gradoSeleccionado) params.grado = gradoSeleccionado;
+      if (seccionSeleccionada) params.seccion = seccionSeleccionada;
+      const res = await axios.get('http://localhost:8000/notas/cuadro', { params });
       setEstudiantes(res.data.estudiantes);
+      setGrados(res.data.grados || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -66,8 +73,7 @@ export default function CuadroNotas() {
       await axios.post('http://localhost:8000/notas/guardar', {
         estudiante_id: estudianteId,
         materia_id: parseInt(materiaSeleccionada),
-        anio, bimestre, nota,
-        observacion: ''
+        anio, bimestre, nota, observacion: ''
       });
       showMensajeF('✔ Nota guardada.', 'success');
       setEditando(null);
@@ -83,7 +89,7 @@ export default function CuadroNotas() {
     if (!nuevaMateria.trim()) return;
     try {
       await axios.post('http://localhost:8000/notas/materias/crear', {
-        nombre: nuevaMateria.trim(), grado: nuevoGrado
+        nombre: nuevaMateria.trim(), grado: 'General'
       });
       showMensajeF('✔ Materia creada.', 'success');
       setNuevaMateria('');
@@ -118,6 +124,14 @@ export default function CuadroNotas() {
     return 'bg-[#ef444420] border-[#ef4444] text-[#ef4444]';
   };
 
+  // Secciones disponibles según grado seleccionado
+  const seccionesDisponibles = [...new Set(
+    grados.filter(g => !gradoSeleccionado || g.grado === gradoSeleccionado)
+          .map(g => g.seccion).filter(Boolean)
+  )];
+
+  const gradosDisponibles = [...new Set(grados.map(g => g.grado).filter(Boolean))];
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Encabezado */}
@@ -130,10 +144,8 @@ export default function CuadroNotas() {
               <p className="text-muted text-sm">Registro de notas por materia y bimestre</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowMaterias(true)}
-            className="bg-theme3 hover:bg-theme border border-theme text-theme font-bold px-4 py-2 rounded-xl transition text-sm"
-          >
+          <button onClick={() => setShowMaterias(true)}
+            className="bg-theme3 hover:bg-theme border border-theme text-theme font-bold px-4 py-2 rounded-xl transition text-sm">
             ⚙ Gestionar Materias
           </button>
         </div>
@@ -151,6 +163,7 @@ export default function CuadroNotas() {
       {/* Filtros */}
       <div className="bg-theme2 border border-theme rounded-2xl p-4 mb-4">
         <div className="flex flex-col sm:flex-row gap-4">
+          {/* Materia */}
           <div className="flex-1">
             <label className="block text-muted text-xs font-bold uppercase mb-2">Materia</label>
             <select value={materiaSeleccionada}
@@ -163,7 +176,38 @@ export default function CuadroNotas() {
               ))}
             </select>
           </div>
-          <div className="w-32">
+
+          {/* Grado */}
+          <div className="flex-1">
+            <label className="block text-muted text-xs font-bold uppercase mb-2">Grado</label>
+            <select value={gradoSeleccionado}
+              onChange={e => { setGradoSeleccionado(e.target.value); setSeccionSeleccionada(''); }}
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#ec4899]"
+            >
+              <option value="">Todos los grados</option>
+              {gradosDisponibles.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sección */}
+          <div className="flex-1">
+            <label className="block text-muted text-xs font-bold uppercase mb-2">Sección</label>
+            <select value={seccionSeleccionada}
+              onChange={e => setSeccionSeleccionada(e.target.value)}
+              disabled={!gradoSeleccionado}
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#ec4899] disabled:opacity-50"
+            >
+              <option value="">Todas las secciones</option>
+              {seccionesDisponibles.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Año */}
+          <div className="w-28">
             <label className="block text-muted text-xs font-bold uppercase mb-2">Año</label>
             <input type="text" value={anio}
               onChange={e => setAnio(e.target.value)}
@@ -177,8 +221,8 @@ export default function CuadroNotas() {
       <div className="flex gap-4 mb-4 flex-wrap">
         {[
           { label: 'Excelente (14-20)', color: 'bg-[#22c55e20] border-[#22c55e] text-[#22c55e]' },
-          { label: 'Regular (11-13)', color: 'bg-[#f59e0b20] border-[#f59e0b] text-[#f59e0b]' },
-          { label: 'Desaprobado (0-10)', color: 'bg-[#ef444420] border-[#ef4444] text-[#ef4444]' },
+          { label: 'Regular (11-13)',   color: 'bg-[#f59e0b20] border-[#f59e0b] text-[#f59e0b]' },
+          { label: 'Desaprobado (0-10)',color: 'bg-[#ef444420] border-[#ef4444] text-[#ef4444]' },
         ].map(l => (
           <span key={l.label} className={`border rounded-full px-3 py-1 text-xs font-bold ${l.color}`}>
             {l.label}
@@ -186,7 +230,7 @@ export default function CuadroNotas() {
         ))}
       </div>
 
-      {/* Tabla de notas */}
+      {/* Tabla */}
       {!materiaSeleccionada ? (
         <div className="bg-theme2 border border-theme rounded-2xl p-12 text-center">
           <p className="text-4xl mb-3">📊</p>
@@ -196,17 +240,23 @@ export default function CuadroNotas() {
         <div className="text-center py-12 text-muted text-sm">Cargando...</div>
       ) : (
         <div className="bg-theme2 border border-theme rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-theme">
+          <div className="p-4 border-b border-theme flex items-center justify-between">
             <p className="text-theme font-bold text-sm">
-              {materias.find(m => m.id.toString() === materiaSeleccionada)?.nombre} — {anio}
+              {materias.find(m => m.id.toString() === materiaSeleccionada)?.nombre}
+              {gradoSeleccionado && ` — ${gradoSeleccionado}`}
+              {seccionSeleccionada && ` "${seccionSeleccionada}"`}
+              {` — ${anio}`}
             </p>
+            <p className="text-muted text-xs">{estudiantes.length} estudiantes</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-theme">
                   <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Estudiante</th>
-                  {['B1', 'B2', 'B3', 'B4'].map(b => (
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Grado</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Sección</th>
+                  {['B1','B2','B3','B4'].map(b => (
                     <th key={b} className="text-center px-4 py-3 text-muted text-xs font-bold uppercase">{b}</th>
                   ))}
                   <th className="text-center px-4 py-3 text-muted text-xs font-bold uppercase">Promedio</th>
@@ -215,75 +265,83 @@ export default function CuadroNotas() {
                 </tr>
               </thead>
               <tbody>
-                {estudiantes.map(est => (
-                  <tr key={est.id} className="border-b border-theme hover:bg-theme3 transition">
-                    <td className="px-6 py-4 text-theme font-medium">{est.nombre}</td>
-                    {[1, 2, 3, 4].map(b => {
-                      const nota = est[`b${b}`];
-                      const isEditando = editando === est.id && bimestreEditando === b;
-                      return (
-                        <td key={b} className="px-4 py-4 text-center">
-                          {isEditando ? (
-                            <div className="flex items-center gap-1 justify-center">
-                              <input
-                                type="number" min="0" max="20" step="0.5"
-                                value={notaTemp}
-                                onChange={e => setNotaTemp(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') handleGuardarNota(est.id, b);
-                                  if (e.key === 'Escape') { setEditando(null); setBimestreEditando(null); }
-                                }}
-                                autoFocus
-                                className="w-16 bg-theme3 border border-[#ec4899] text-theme rounded-lg px-2 py-1 text-xs text-center focus:outline-none"
-                              />
-                              <button onClick={() => handleGuardarNota(est.id, b)}
-                                className="text-[#22c55e] hover:bg-[#22c55e20] p-1 rounded-lg transition text-xs">✔</button>
-                              <button onClick={() => { setEditando(null); setBimestreEditando(null); }}
-                                className="text-[#ef4444] hover:bg-[#ef444420] p-1 rounded-lg transition text-xs">✕</button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setEditando(est.id);
-                                setBimestreEditando(b);
-                                setNotaTemp(nota !== null && nota !== undefined ? nota.toString() : '');
-                              }}
-                              className={`w-12 h-8 rounded-lg border font-bold text-sm transition hover:opacity-80 ${
-                                nota !== null && nota !== undefined
-                                  ? badgeNota(nota)
-                                  : 'bg-theme3 border-theme text-muted'
-                              }`}
-                            >
-                              {nota !== null && nota !== undefined ? nota : '—'}
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="px-4 py-4 text-center">
-                      <span className={`font-bold text-sm ${colorNota(est.promedio)}`}>
-                        {est.promedio !== null ? est.promedio : '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      {est.promedio !== null ? (
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${badgeNota(est.promedio)}`}>
-                          {est.promedio >= 11 ? '✔ Aprobado' : '✗ Desaprobado'}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-xs">Sin notas</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <button
-                        onClick={() => fetchNotasEstudiante(est)}
-                        className="bg-[#ec489920] hover:bg-[#ec489940] border border-[#ec4899] text-[#ec4899] text-xs font-bold px-3 py-1.5 rounded-lg transition"
-                      >
-                        Ver todo
-                      </button>
+                {estudiantes.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-12 text-muted text-sm">
+                      📭 No hay estudiantes con los filtros seleccionados
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  estudiantes.map(est => (
+                    <tr key={est.id} className="border-b border-theme hover:bg-theme3 transition">
+                      <td className="px-6 py-4 text-theme font-medium">{est.nombre}</td>
+                      <td className="px-4 py-4 text-muted text-xs">{est.grado || '—'}</td>
+                      <td className="px-4 py-4 text-muted text-xs">{est.seccion || '—'}</td>
+                      {[1,2,3,4].map(b => {
+                        const nota = est[`b${b}`];
+                        const isEditando = editando === est.id && bimestreEditando === b;
+                        return (
+                          <td key={b} className="px-4 py-4 text-center">
+                            {isEditando ? (
+                              <div className="flex items-center gap-1 justify-center">
+                                <input
+                                  type="number" min="0" max="20" step="0.5"
+                                  value={notaTemp}
+                                  onChange={e => setNotaTemp(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') handleGuardarNota(est.id, b);
+                                    if (e.key === 'Escape') { setEditando(null); setBimestreEditando(null); }
+                                  }}
+                                  autoFocus
+                                  className="w-16 bg-theme3 border border-[#ec4899] text-theme rounded-lg px-2 py-1 text-xs text-center focus:outline-none"
+                                />
+                                <button onClick={() => handleGuardarNota(est.id, b)}
+                                  className="text-[#22c55e] hover:bg-[#22c55e20] p-1 rounded-lg transition text-xs">✔</button>
+                                <button onClick={() => { setEditando(null); setBimestreEditando(null); }}
+                                  className="text-[#ef4444] hover:bg-[#ef444420] p-1 rounded-lg transition text-xs">✕</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setEditando(est.id);
+                                  setBimestreEditando(b);
+                                  setNotaTemp(nota !== null && nota !== undefined ? nota.toString() : '');
+                                }}
+                                className={`w-12 h-8 rounded-lg border font-bold text-sm transition hover:opacity-80 ${
+                                  nota !== null && nota !== undefined
+                                    ? badgeNota(nota)
+                                    : 'bg-theme3 border-theme text-muted'
+                                }`}
+                              >
+                                {nota !== null && nota !== undefined ? nota : '—'}
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-4 text-center">
+                        <span className={`font-bold text-sm ${colorNota(est.promedio)}`}>
+                          {est.promedio !== null ? est.promedio : '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        {est.promedio !== null ? (
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${badgeNota(est.promedio)}`}>
+                            {est.promedio >= 11 ? '✔ Aprobado' : '✗ Desaprobado'}
+                          </span>
+                        ) : (
+                          <span className="text-muted text-xs">Sin notas</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <button onClick={() => fetchNotasEstudiante(est)}
+                          className="bg-[#ec489920] hover:bg-[#ec489940] border border-[#ec4899] text-[#ec4899] text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                          Ver todo
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -299,8 +357,6 @@ export default function CuadroNotas() {
               <button onClick={() => setShowMaterias(false)}
                 className="text-muted hover:text-theme text-xl font-bold transition">✕</button>
             </div>
-
-            {/* Nueva materia */}
             <div className="bg-theme3 rounded-xl p-4 mb-4">
               <p className="text-muted text-xs font-bold uppercase mb-3">Nueva Materia</p>
               <div className="flex gap-2">
@@ -311,13 +367,9 @@ export default function CuadroNotas() {
                   className="flex-1 bg-theme2 border border-theme text-theme rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#ec4899]"
                 />
                 <button onClick={handleCrearMateria}
-                  className="bg-[#ec4899] hover:bg-[#db2777] text-white font-bold px-4 py-2 rounded-xl transition text-sm">
-                  +
-                </button>
+                  className="bg-[#ec4899] hover:bg-[#db2777] text-white font-bold px-4 py-2 rounded-xl transition text-sm">+</button>
               </div>
             </div>
-
-            {/* Lista materias */}
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {materias.map(m => (
                 <div key={m.id} className="flex items-center justify-between bg-theme3 border border-theme rounded-xl px-4 py-3">
@@ -330,7 +382,6 @@ export default function CuadroNotas() {
                 </div>
               ))}
             </div>
-
             <button onClick={() => setShowMaterias(false)}
               className="w-full mt-4 bg-theme3 hover:bg-theme border border-theme text-muted font-bold py-3 rounded-xl transition text-sm">
               Cerrar
@@ -346,12 +397,15 @@ export default function CuadroNotas() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-theme font-bold text-lg">{estudianteDetalle.nombre}</h3>
-                <p className="text-muted text-xs">Todas las notas — {anio}</p>
+                <p className="text-muted text-xs">
+                  {estudianteDetalle.grado && `${estudianteDetalle.grado}`}
+                  {estudianteDetalle.seccion && ` "${estudianteDetalle.seccion}"`}
+                  {` — ${anio}`}
+                </p>
               </div>
               <button onClick={() => setEstudianteDetalle(null)}
                 className="text-muted hover:text-theme text-xl font-bold transition">✕</button>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -389,7 +443,6 @@ export default function CuadroNotas() {
                 </tbody>
               </table>
             </div>
-
             <button onClick={() => setEstudianteDetalle(null)}
               className="w-full mt-4 bg-theme3 hover:bg-theme border border-theme text-muted font-bold py-3 rounded-xl transition text-sm">
               Cerrar
