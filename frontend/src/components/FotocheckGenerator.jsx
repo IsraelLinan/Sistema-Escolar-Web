@@ -8,6 +8,7 @@ export default function FotocheckGenerator() {
   const [logoEscuela, setLogoEscuela] = useState(null);
   const [nombre, setNombre] = useState('');
   const [grado, setGrado] = useState('');
+  const [seccion, setSeccion] = useState('');
   const [anio, setAnio] = useState(new Date().getFullYear().toString());
   const [codigoBarras, setCodigoBarras] = useState('');
   const [imagenCodigo, setImagenCodigo] = useState(null);
@@ -93,7 +94,7 @@ export default function FotocheckGenerator() {
         nombre_escuela: '',
         logo_escuela: logoEscuela || '',
         nombre,
-        grado,
+        grado: grado + (seccion ? ` - ${seccion}` : ''),
         anio,
         foto: foto || '',
         codigo_barras: codigoBarras || '',
@@ -144,22 +145,50 @@ export default function FotocheckGenerator() {
               type="text"
               value={nombre}
               onChange={e => setNombre(e.target.value)}
-              placeholder="Ej: García López, Juan Carlos"
+              placeholder="Ej: García López Juan Carlos"
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
             />
           </div>
 
-          {/* Grado y Año */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Grado, Sección y Año */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-muted text-xs font-bold uppercase mb-1">Grado</label>
-              <input
-                type="text"
+              <select
                 value={grado}
                 onChange={e => setGrado(e.target.value)}
-                placeholder="Ej: 3° Secundaria"
                 className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              />
+              >
+                <option value="">Seleccionar</option>
+                <optgroup label="Primaria">
+                  <option value="1ro Primaria">1ro Primaria</option>
+                  <option value="2do Primaria">2do Primaria</option>
+                  <option value="3ro Primaria">3ro Primaria</option>
+                  <option value="4to Primaria">4to Primaria</option>
+                  <option value="5to Primaria">5to Primaria</option>
+                  <option value="6to Primaria">6to Primaria</option>
+                </optgroup>
+                <optgroup label="Secundaria">
+                  <option value="1ro Secundaria">1ro Secundaria</option>
+                  <option value="2do Secundaria">2do Secundaria</option>
+                  <option value="3ro Secundaria">3ro Secundaria</option>
+                  <option value="4to Secundaria">4to Secundaria</option>
+                  <option value="5to Secundaria">5to Secundaria</option>
+                </optgroup>
+              </select>
+            </div>
+            <div>
+              <label className="block text-muted text-xs font-bold uppercase mb-1">Sección</label>
+              <select
+                value={seccion}
+                onChange={e => setSeccion(e.target.value)}
+                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+              >
+                <option value="">Seleccionar</option>
+                {['A','B','C','D','E','F','G','H'].map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
@@ -284,9 +313,12 @@ export default function FotocheckGenerator() {
                 position: 'absolute', left: '140px', top: '8px',
                 fontSize: '10px', color: '#333', lineHeight: '1.8'
               }}>
-                <div><span style={{ color: '#666' }}>Nombre :</span> <strong>{nombre || ''}</strong></div>
-                <div><span style={{ color: '#666' }}>Grado   :</span> <strong>{grado || ''}</strong></div>
-                <div><span style={{ color: '#666' }}>Año       :</span> <strong>{anio || ''}</strong></div>
+                <div><span style={{ color: '#666' }}>Nombre  :</span> <strong>{nombre || ''}</strong></div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
+                  {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
+                </div>
+                <div><span style={{ color: '#666' }}>Año      :</span> <strong>{anio || ''}</strong></div>
               </div>
             </div>
 

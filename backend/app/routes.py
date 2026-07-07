@@ -711,11 +711,26 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
     conn = get_conn()
     try:
         cur = conn.cursor()
+
         # Buscar estudiante_id si existe
         cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s LIMIT 1",
                     (f"%{data.nombre.lower()}%",))
         est = cur.fetchone()
         estudiante_id = est[0] if est else None
+
+        # Extraer grado y sección del campo grado (formato "1ro Primaria - A")
+        grado_val = None
+        seccion_val = None
+        if data.grado:
+            partes = data.grado.split(' - ')
+            grado_val = partes[0].strip() if partes else data.grado
+            seccion_val = partes[1].strip() if len(partes) > 1 else None
+
+        # Actualizar grado y sección del estudiante si existe
+        if estudiante_id and (grado_val or seccion_val):
+            cur.execute("""
+                UPDATE estudiantes SET grado = %s, seccion = %s WHERE id = %s
+            """, (grado_val, seccion_val, estudiante_id))
 
         cur.execute("""
             INSERT INTO fotochecks (estudiante_id, nombre_escuela, logo_escuela,

@@ -185,9 +185,21 @@ export default function CuadroNotas() {
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#ec4899]"
             >
               <option value="">Todos los grados</option>
-              {gradosDisponibles.map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
+              <optgroup label="Primaria">
+                <option value="1ro Primaria">1ro Primaria</option>
+                <option value="2do Primaria">2do Primaria</option>
+                <option value="3ro Primaria">3ro Primaria</option>
+                <option value="4to Primaria">4to Primaria</option>
+                <option value="5to Primaria">5to Primaria</option>
+                <option value="6to Primaria">6to Primaria</option>
+              </optgroup>
+              <optgroup label="Secundaria">
+                <option value="1ro Secundaria">1ro Secundaria</option>
+                <option value="2do Secundaria">2do Secundaria</option>
+                <option value="3ro Secundaria">3ro Secundaria</option>
+                <option value="4to Secundaria">4to Secundaria</option>
+                <option value="5to Secundaria">5to Secundaria</option>
+              </optgroup>
             </select>
           </div>
 
@@ -200,7 +212,7 @@ export default function CuadroNotas() {
               className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#ec4899] disabled:opacity-50"
             >
               <option value="">Todas las secciones</option>
-              {seccionesDisponibles.map(s => (
+              {['A','B','C','D','E','F','G','H'].map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
