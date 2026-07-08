@@ -319,7 +319,7 @@ def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por
             JOIN docentes d ON d.id = id2.docente_id
             WHERE DATE(id2.hora_ingreso) = %s
             UNION ALL
-            SELECT a.apellidos || ', ' || a.nombres, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
+            SELECT a.apellidos || ' ' || a.nombres, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
             FROM ingresos_auxiliares ia
             JOIN auxiliares a ON a.id = ia.auxiliar_id
             WHERE DATE(ia.hora_ingreso) = %s
@@ -616,7 +616,7 @@ def ingreso_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verifi
         if not row:
             raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
         auxiliar_id, nombres, apellidos = row
-        nombre_completo = f"{apellidos}, {nombres}"
+        nombre_completo = f"{apellidos} {nombres}"
 
         # Verificar si ya registró ingreso hoy
         cur.execute("""
@@ -654,7 +654,7 @@ def salida_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verific
         if not row:
             raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
         auxiliar_id, nombres, apellidos = row
-        nombre_completo = f"{apellidos}, {nombres}"
+        nombre_completo = f"{apellidos} {nombres}"
 
         # Verificar si ya registró salida hoy
         cur.execute("""
