@@ -2,7 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 
+const TABS = [
+  { valor: 'Estudiante', label: '🎓 Estudiantes', color: '#3b82f6' },
+  { valor: 'Docente',    label: '👨‍🏫 Docentes',    color: '#22c55e' },
+  { valor: 'Auxiliar',   label: '👷 Auxiliares',   color: '#ef4444' },
+];
+
 export default function CarnetsModule() {
+  const [tipo, setTipo] = useState('Estudiante');
   const [fotochecks, setFotochecks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -20,13 +27,13 @@ export default function CarnetsModule() {
     setPagina(1);
     fetchFotochecks(1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda]);
+  }, [busqueda, tipo]);
 
   const fetchFotochecks = async (pag = pagina) => {
     setLoading(true);
     try {
       const res = await axios.get('http://localhost:8000/fotochecks/lista', {
-        params: { busqueda, pagina: pag, por_pagina: POR_PAGINA }
+        params: { busqueda, tipo, pagina: pag, por_pagina: POR_PAGINA }
       });
       setFotochecks(res.data.fotochecks);
       setTotal(res.data.total);
@@ -83,7 +90,7 @@ export default function CarnetsModule() {
           pdf.addImage(aImprimir[i].imagen_carnet, 'PNG', x, y, carnetW, carnetH);
         }
       }
-      pdf.save(`carnets_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`carnets_${tipo.toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (e) {
       console.error(e);
     } finally {
@@ -107,17 +114,39 @@ export default function CarnetsModule() {
     fetchFotochecks(nueva);
   };
 
+  const colorActivo = TABS.find(t => t.valor === tipo)?.color || '#3b82f6';
+  const nombrePersona = { Estudiante: 'estudiante', Docente: 'docente', Auxiliar: 'auxiliar' }[tipo];
+  const nombreModulo = { Estudiante: 'Escolar', Docente: 'Docente', Auxiliar: 'Auxiliar' }[tipo];
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Encabezado */}
       <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
-        <div className="flex items-center gap-4">
-          <span className="text-5xl">🪪</span>
-          <div>
-            <h2 className="text-theme text-xl font-bold">Carnets</h2>
-            <p className="text-muted text-sm">
-              Carnets generados desde el módulo Generar Fotocheck Escolar
-            </p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-5xl">🪪</span>
+            <div>
+              <h2 className="text-theme text-xl font-bold">Carnets</h2>
+              <p className="text-muted text-sm">
+                Carnets generados desde los módulos de Fotocheck
+              </p>
+            </div>
+          </div>
+
+          {/* Selector de pestañas */}
+          <div className="flex bg-theme3 border border-theme rounded-xl p-1 flex-wrap">
+            {TABS.map(t => (
+              <button
+                key={t.valor}
+                onClick={() => setTipo(t.valor)}
+                style={tipo === t.valor ? { backgroundColor: t.color } : {}}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                  tipo === t.valor ? 'text-white' : 'text-muted hover:text-theme'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -136,8 +165,8 @@ export default function CarnetsModule() {
         <input
           type="text" value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          placeholder="🔍 Buscar por nombre del estudiante..."
-          className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3b82f6]"
+          placeholder={`🔍 Buscar por nombre del ${nombrePersona}...`}
+          className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
         />
       </div>
 
@@ -145,7 +174,7 @@ export default function CarnetsModule() {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <p className="text-muted text-sm">
           <span className="text-theme font-bold">{seleccionados.length}</span> seleccionados •{' '}
-          <span className="text-theme font-bold">{total}</span> carnets en total
+          <span className="text-theme font-bold">{total}</span> carnets de {nombrePersona}s
         </p>
         <div className="flex gap-3">
           <button
@@ -158,7 +187,8 @@ export default function CarnetsModule() {
           <button
             onClick={imprimirSeleccionados}
             disabled={seleccionados.length === 0 || imprimiendo}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-bold px-4 py-2 rounded-xl transition disabled:opacity-50"
+            style={{ backgroundColor: colorActivo }}
+            className="text-white text-sm font-bold px-4 py-2 rounded-xl transition disabled:opacity-50 hover:opacity-90"
           >
             {imprimiendo ? 'Generando PDF...' : `🖨 Imprimir (${seleccionados.length})`}
           </button>
@@ -171,8 +201,10 @@ export default function CarnetsModule() {
       ) : fotochecks.length === 0 ? (
         <div className="text-center py-12 text-muted text-sm">
           <p className="text-4xl mb-3">🪪</p>
-          <p>No hay carnets guardados aún.</p>
-          <p className="text-xs mt-2">Genera carnets desde el módulo <strong>Generar Fotocheck Escolar</strong> y guárdalos aquí.</p>
+          <p>No hay carnets de {nombrePersona}s guardados aún.</p>
+          <p className="text-xs mt-2">
+            Genera carnets desde el módulo <strong>Generar Fotocheck {nombreModulo}</strong> y guárdalos aquí.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
@@ -182,7 +214,8 @@ export default function CarnetsModule() {
                 type="checkbox"
                 checked={seleccionados.includes(c.id)}
                 onChange={() => toggleSeleccion(c.id)}
-                className="absolute top-2 left-2 z-10 w-4 h-4 accent-[#3b82f6] cursor-pointer"
+                className="absolute top-2 left-2 z-10 w-4 h-4 cursor-pointer"
+                style={{ accentColor: colorActivo }}
               />
               <button
                 onClick={() => setConfirmDelete(c.id)}
@@ -191,11 +224,10 @@ export default function CarnetsModule() {
               <div
                 ref={el => carnetsRef.current[c.id] = el}
                 onClick={() => toggleSeleccion(c.id)}
-                className={`cursor-pointer transition rounded-xl overflow-hidden ${
-                  seleccionados.includes(c.id)
-                    ? 'ring-2 ring-[#3b82f6] ring-offset-2'
-                    : 'hover:ring-2 hover:ring-[#3b82f6] hover:ring-offset-1'
-                }`}
+                className="cursor-pointer transition rounded-xl overflow-hidden"
+                style={{
+                  boxShadow: seleccionados.includes(c.id) ? `0 0 0 2px ${colorActivo}` : 'none'
+                }}
               >
                 {c.imagen_carnet ? (
                   <img src={c.imagen_carnet} alt={c.nombre} className="w-full rounded-xl shadow-md" />
@@ -206,7 +238,9 @@ export default function CarnetsModule() {
                 )}
               </div>
               <p className="text-theme text-xs font-medium text-center mt-2 truncate px-1">{c.nombre}</p>
-              <p className="text-muted text-xs text-center">{c.grado} • {c.anio}</p>
+              <p className="text-muted text-xs text-center">
+                {tipo === 'Estudiante' ? `${c.grado} • ${c.anio}` : `${tipo} • ${c.anio}`}
+              </p>
             </div>
           ))}
         </div>
@@ -240,10 +274,9 @@ export default function CarnetsModule() {
                   <button
                     key={p}
                     onClick={() => handlePagina(p)}
+                    style={p === pagina ? { backgroundColor: colorActivo, borderColor: colorActivo } : {}}
                     className={`text-xs font-bold px-3 py-2 rounded-lg transition border ${
-                      p === pagina
-                        ? 'bg-[#3b82f6] border-[#3b82f6] text-white'
-                        : 'bg-theme3 hover:bg-theme border-theme text-theme'
+                      p === pagina ? 'text-white' : 'bg-theme3 hover:bg-theme border-theme text-theme'
                     }`}
                   >{p}</button>
                 </>

@@ -3,12 +3,10 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
 
-export default function FotocheckGenerator() {
+export default function FotocheckDocente() {
   const [foto, setFoto] = useState(null);
   const [logoEscuela, setLogoEscuela] = useState(null);
   const [nombre, setNombre] = useState('');
-  const [grado, setGrado] = useState('');
-  const [seccion, setSeccion] = useState('');
   const [anio, setAnio] = useState(new Date().getFullYear().toString());
   const [codigoBarras, setCodigoBarras] = useState('');
   const [imagenCodigo, setImagenCodigo] = useState(null);
@@ -39,19 +37,19 @@ export default function FotocheckGenerator() {
 
   const buscarCodigo = async () => {
     if (!nombre.trim()) {
-      setError('Ingrese el nombre del estudiante primero.');
+      setError('Ingrese el nombre del docente primero.');
       return;
     }
     setLoadingCodigo(true);
     setError('');
     try {
       const res = await axios.get(
-        `http://localhost:8000/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}`
+        `http://localhost:8000/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}&tipo=Docente`
       );
       setImagenCodigo(res.data.imagen);
       setCodigoBarras(res.data.codigo);
     } catch (e) {
-      setError('No se encontró código para este estudiante. Genéralo primero en el módulo de códigos.');
+      setError('No se encontró código para este docente. Genéralo primero en el módulo de códigos.');
     } finally {
       setLoadingCodigo(false);
     }
@@ -69,7 +67,7 @@ export default function FotocheckGenerator() {
         orientation: 'landscape', unit: 'mm', format: [85.6, 54],
       });
       pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 54);
-      pdf.save(`fotocheck_${nombre || 'estudiante'}.pdf`);
+      pdf.save(`fotocheck_docente_${nombre || 'docente'}.pdf`);
     } catch (e) {
       setError('Error al exportar el PDF.');
     } finally {
@@ -79,7 +77,7 @@ export default function FotocheckGenerator() {
 
   const guardarFotocheck = async () => {
     if (!nombre.trim()) {
-      setError('Ingrese el nombre del estudiante.');
+      setError('Ingrese el nombre del docente.');
       return;
     }
     setLoadingGuardar(true);
@@ -94,12 +92,12 @@ export default function FotocheckGenerator() {
         nombre_escuela: '',
         logo_escuela: logoEscuela || '',
         nombre,
-        grado: grado + (seccion ? ` - ${seccion}` : ''),
+        grado: '',
         anio,
         foto: foto || '',
         codigo_barras: codigoBarras || '',
         imagen_carnet: imagenCarnet,
-        tipo: 'Estudiante'
+        tipo: 'Docente'
       });
       setExitoGuardar('✔ Carnet guardado. Puedes verlo en el módulo Carnets.');
       setTimeout(() => setExitoGuardar(''), 4000);
@@ -117,8 +115,8 @@ export default function FotocheckGenerator() {
         <div className="flex items-center gap-4">
           <span className="text-5xl">🪪</span>
           <div>
-            <h2 className="text-theme text-xl font-bold">Generar Fotocheck Escolar</h2>
-            <p className="text-muted text-sm">Diseña e imprime el carné del estudiante</p>
+            <h2 className="text-theme text-xl font-bold">Generar Fotocheck Docente</h2>
+            <p className="text-muted text-sm">Diseña e imprime el carné del docente</p>
           </div>
         </div>
       </div>
@@ -132,81 +130,41 @@ export default function FotocheckGenerator() {
           {/* Logo escuela */}
           <div>
             <label className="block text-muted text-xs font-bold uppercase mb-1">Logo de la Escuela</label>
-            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#22c55e] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
               <span>🏫</span>
               <span>{logoEscuela ? 'Logo cargado ✔' : 'Haz clic para subir el logo'}</span>
               <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
             </label>
           </div>
 
-          {/* Nombre estudiante */}
+          {/* Nombre docente */}
           <div>
-            <label className="block text-muted text-xs font-bold uppercase mb-1">Nombre del Estudiante</label>
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Nombre del Docente</label>
             <input
               type="text"
               value={nombre}
               onChange={e => setNombre(e.target.value)}
-              placeholder="Ej: García López Juan Carlos"
-              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+              placeholder="Ej: García López, Juan Carlos"
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#22c55e]"
             />
           </div>
 
-          {/* Grado, Sección y Año */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-muted text-xs font-bold uppercase mb-1">Grado</label>
-              <select
-                value={grado}
-                onChange={e => setGrado(e.target.value)}
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              >
-                <option value="">Seleccionar</option>
-                <optgroup label="Primaria">
-                  <option value="1ro Primaria">1ro Primaria</option>
-                  <option value="2do Primaria">2do Primaria</option>
-                  <option value="3ro Primaria">3ro Primaria</option>
-                  <option value="4to Primaria">4to Primaria</option>
-                  <option value="5to Primaria">5to Primaria</option>
-                  <option value="6to Primaria">6to Primaria</option>
-                </optgroup>
-                <optgroup label="Secundaria">
-                  <option value="1ro Secundaria">1ro Secundaria</option>
-                  <option value="2do Secundaria">2do Secundaria</option>
-                  <option value="3ro Secundaria">3ro Secundaria</option>
-                  <option value="4to Secundaria">4to Secundaria</option>
-                  <option value="5to Secundaria">5to Secundaria</option>
-                </optgroup>
-              </select>
-            </div>
-            <div>
-              <label className="block text-muted text-xs font-bold uppercase mb-1">Sección</label>
-              <select
-                value={seccion}
-                onChange={e => setSeccion(e.target.value)}
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              >
-                <option value="">Seleccionar</option>
-                {['A','B','C','D','E','F','G','H'].map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
-              <input
-                type="text"
-                value={anio}
-                onChange={e => setAnio(e.target.value)}
-                placeholder="2026"
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              />
-            </div>
+          {/* Año */}
+          <div>
+            <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
+            <input
+              type="text"
+              value={anio}
+              onChange={e => setAnio(e.target.value)}
+              placeholder="2026"
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#22c55e]"
+            />
           </div>
 
           {/* Foto */}
           <div>
             <label className="block text-muted text-xs font-bold uppercase mb-1">Fotografía</label>
-            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#22c55e] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
               <span>📷</span>
               <span>{foto ? 'Foto cargada ✔' : 'Haz clic para subir una foto'}</span>
               <input type="file" accept="image/*" onChange={handleFoto} className="hidden" />
@@ -221,7 +179,7 @@ export default function FotocheckGenerator() {
               disabled={loadingCodigo}
               className="w-full bg-theme3 hover:bg-theme border border-theme text-theme font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
             >
-              {loadingCodigo ? 'Buscando...' : '🔍 Buscar código del estudiante'}
+              {loadingCodigo ? 'Buscando...' : '🔍 Buscar código del docente'}
             </button>
             {imagenCodigo && (
               <p className="text-[#22c55e] text-xs mt-1">✔ Código encontrado y cargado</p>
@@ -247,14 +205,14 @@ export default function FotocheckGenerator() {
             <button
               onClick={exportarPDF}
               disabled={loadingPDF}
-              className="flex-1 bg-[#06b6d4] hover:bg-[#0891b2] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
             >
               {loadingPDF ? 'Generando...' : '📄 Exportar PDF'}
             </button>
             <button
               onClick={guardarFotocheck}
               disabled={loadingGuardar}
-              className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              className="flex-1 bg-[#16a34a] hover:bg-[#15803d] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
             >
               {loadingGuardar ? 'Guardando...' : '💾 Guardar Carnet'}
             </button>
@@ -270,9 +228,9 @@ export default function FotocheckGenerator() {
             style={{ width: '342px', height: '216px', fontFamily: 'Arial, sans-serif' }}
             className="relative rounded-xl overflow-hidden shadow-2xl"
           >
-            {/* Header azul */}
+            {/* Header verde */}
             <div style={{
-              background: 'linear-gradient(135deg, #1a6b8a 0%, #1e3a6e 50%, #1a3a5c 100%)',
+              background: 'linear-gradient(135deg, #15803d 0%, #166534 50%, #14532d 100%)',
               height: '50%', position: 'relative',
             }}>
               <div style={{
@@ -300,7 +258,7 @@ export default function FotocheckGenerator() {
                 color: 'white', fontWeight: 'bold', fontSize: '16px',
                 textShadow: '0 1px 3px rgba(0,0,0,0.4)'
               }}>
-                Carné de Estudiante
+                Carné de Docente
               </div>
             </div>
 
@@ -308,18 +266,15 @@ export default function FotocheckGenerator() {
             <div style={{ background: 'white', height: '50%', position: 'relative' }}>
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                height: '8px', background: 'linear-gradient(90deg, #22c55e, #16a34a)'
+                height: '8px', background: 'linear-gradient(90deg, #4f8ef7, #2563eb)'
               }} />
               <div style={{
                 position: 'absolute', left: '140px', top: '8px',
                 fontSize: '10px', color: '#333', lineHeight: '1.8'
               }}>
-                <div><span style={{ color: '#666' }}>Nombre  :</span> <strong>{nombre || ''}</strong></div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
-                  {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
-                </div>
-                <div><span style={{ color: '#666' }}>Año      :</span> <strong>{anio || ''}</strong></div>
+                <div><span style={{ color: '#666' }}>Nombre :</span> <strong>{nombre || ''}</strong></div>
+                <div><span style={{ color: '#666' }}>Cargo   :</span> <strong>Docente</strong></div>
+                <div><span style={{ color: '#666' }}>Año       :</span> <strong>{anio || ''}</strong></div>
               </div>
             </div>
 
@@ -336,7 +291,7 @@ export default function FotocheckGenerator() {
                 <div style={{
                   width: '100%', height: '100%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '32px', background: '#dbeafe'
+                  fontSize: '32px', background: '#dcfce7'
                 }}>👤</div>
               )}
             </div>

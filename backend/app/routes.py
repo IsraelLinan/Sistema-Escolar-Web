@@ -235,7 +235,55 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
     try:
         cur = conn.cursor()
 
-        # Verificar duplicados
+        if data.tipo_persona == "Auxiliar":
+            cur.execute(
+                "SELECT id, nombre, codigo_barras FROM auxiliares_codigos WHERE LOWER(nombre) = LOWER(%s)",
+                (data.nombre.strip(),)
+            )
+            existente = cur.fetchone()
+
+            if existente:
+                codigo = existente[2]
+                barcode_obj = barcode.get_barcode_class('code128')(codigo, writer=ImageWriter())
+                buffer = io.BytesIO()
+                barcode_obj.write(buffer)
+                img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                cur.close()
+                return {
+                    "success": True,
+                    "nombre": existente[1],
+                    "codigo": codigo,
+                    "imagen": f"data:image/png;base64,{img_base64}",
+                    "duplicado": True,
+                    "mensaje": f"'{existente[1]}' ya está registrado. Se muestra su código existente."
+                }
+
+            unique_id = hashlib.md5(data.nombre.strip().encode()).hexdigest()
+            cur.execute("SELECT id FROM auxiliares_codigos WHERE codigo_barras = %s", (unique_id,))
+            if cur.fetchone():
+                unique_id = hashlib.md5((data.nombre.strip() + str(datetime.now())).encode()).hexdigest()
+
+            cur.execute(
+                "INSERT INTO auxiliares_codigos (nombre, codigo_barras) VALUES (%s, %s)",
+                (data.nombre.strip(), unique_id)
+            )
+            conn.commit()
+
+            barcode_obj = barcode.get_barcode_class('code128')(unique_id, writer=ImageWriter())
+            buffer = io.BytesIO()
+            barcode_obj.write(buffer)
+            img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            cur.close()
+            return {
+                "success": True,
+                "nombre": data.nombre.strip(),
+                "codigo": unique_id,
+                "imagen": f"data:image/png;base64,{img_base64}",
+                "duplicado": False,
+                "mensaje": f"'{data.nombre.strip()}' registrado correctamente como Auxiliar."
+            }
+
+        # Estudiante o Docente (comportamiento original)
         tabla = "estudiantes" if data.tipo_persona == "Estudiante" else "docentes"
         cur.execute(
             f"SELECT id, nombre, codigo_barras FROM {tabla} WHERE LOWER(nombre) = LOWER(%s)",
@@ -244,7 +292,6 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
         existente = cur.fetchone()
 
         if existente:
-            # Ya existe, devolver el código existente con su imagen
             codigo = existente[2]
             barcode_obj = barcode.get_barcode_class('code128')(codigo, writer=ImageWriter())
             buffer = io.BytesIO()
@@ -260,10 +307,7 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
                 "mensaje": f"'{existente[1]}' ya está registrado. Se muestra su código existente."
             }
 
-        # No existe, crear nuevo
         unique_id = hashlib.md5(data.nombre.strip().encode()).hexdigest()
-
-        # Verificar que el hash no esté ya en uso
         cur.execute("SELECT id FROM personas WHERE codigo_barras = %s", (unique_id,))
         if cur.fetchone():
             unique_id = hashlib.md5((data.nombre.strip() + str(datetime.now())).encode()).hexdigest()
@@ -293,6 +337,8 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
             "duplicado": False,
             "mensaje": f"'{data.nombre}' registrado correctamente como {data.tipo_persona}."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -319,9 +365,9 @@ def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por
             JOIN docentes d ON d.id = id2.docente_id
             WHERE DATE(id2.hora_ingreso) = %s
             UNION ALL
-            SELECT a.apellidos || ' ' || a.nombres, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
+            SELECT ac.nombre, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
             FROM ingresos_auxiliares ia
-            JOIN auxiliares a ON a.id = ia.auxiliar_id
+            JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
             WHERE DATE(ia.hora_ingreso) = %s
             ORDER BY hora_ingreso
         """, (fecha_filtro, fecha_filtro, fecha_filtro))
@@ -363,14 +409,21 @@ def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por
 # ── BUSCAR CÓDIGO POR NOMBRE ──────────────────────────────────────────────────
 
 @router.get("/codigos/buscar")
-def buscar_codigo(nombre: str, usuario: str = Depends(verificar_token)):
+def buscar_codigo(nombre: str, tipo: str = "Estudiante", usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT codigo_barras FROM estudiantes WHERE nombre ILIKE %s LIMIT 1",
-            (f"%{nombre}%",)
-        )
+        if tipo == "Auxiliar":
+            cur.execute(
+                "SELECT codigo_barras FROM auxiliares_codigos WHERE nombre ILIKE %s LIMIT 1",
+                (f"%{nombre}%",)
+            )
+        else:
+            tabla = "estudiantes" if tipo == "Estudiante" else "docentes"
+            cur.execute(
+                f"SELECT codigo_barras FROM {tabla} WHERE nombre ILIKE %s LIMIT 1",
+                (f"%{nombre}%",)
+            )
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Estudiante no encontrado")
@@ -470,6 +523,7 @@ def probar_notificacion(data: dict, usuario: str = Depends(verificar_token)):
 class AuxiliarCreate(BaseModel):
     nombres: str
     apellidos: str
+    cargo: str = "Auxiliar"
     dni: str = ""
     fecha_nacimiento: str = ""
     genero: str = "Masculino"
@@ -485,14 +539,14 @@ class AuxiliarUpdate(AuxiliarCreate):
     id: int
 
 @router.get("/auxiliares/lista")
-def lista_auxiliares(busqueda: str = "", turno: str = "", usuario: str = Depends(verificar_token)):
+def lista_auxiliares(busqueda: str = "", turno: str = "", cargo: str = "", usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         query = """
             SELECT id, nombres, apellidos, codigo, dni, fecha_nacimiento,
                    genero, telefono, email, direccion, area_asignada,
-                   turno, fecha_ingreso, foto
+                   turno, fecha_ingreso, foto, cargo, codigo_barras
             FROM auxiliares
             WHERE (LOWER(nombres) LIKE %s OR LOWER(apellidos) LIKE %s
                    OR LOWER(codigo) LIKE %s OR dni LIKE %s)
@@ -501,6 +555,9 @@ def lista_auxiliares(busqueda: str = "", turno: str = "", usuario: str = Depends
         if turno:
             query += " AND turno = %s"
             params.append(turno)
+        if cargo:
+            query += " AND cargo = %s"
+            params.append(cargo)
         query += " ORDER BY apellidos, nombres"
         cur.execute(query, params)
         rows = cur.fetchall()
@@ -515,7 +572,8 @@ def lista_auxiliares(busqueda: str = "", turno: str = "", usuario: str = Depends
                     "email": r[8] or "", "direccion": r[9] or "",
                     "area_asignada": r[10] or "", "turno": r[11] or "",
                     "fecha_ingreso": str(r[12]) if r[12] else "",
-                    "foto": r[13] or ""
+                    "foto": r[13] or "", "cargo": r[14] or "Auxiliar",
+                    "codigo_barras": r[15] or ""
                 }
                 for r in rows
             ]
@@ -530,21 +588,23 @@ def crear_auxiliar(data: AuxiliarCreate, usuario: str = Depends(verificar_token)
     conn = get_conn()
     try:
         cur = conn.cursor()
-        # Generar código automático
-        cur.execute("SELECT COUNT(*) FROM auxiliares")
+        prefijo = {"Docente": "DOC", "Auxiliar": "AUX", "Personal Administrativo": "PA"}.get(data.cargo, "AUX")
+        cur.execute("SELECT COUNT(*) FROM auxiliares WHERE cargo = %s", (data.cargo,))
         count = cur.fetchone()[0]
-        codigo = f"AUX{str(count + 1).zfill(5)}"
+        codigo = f"{prefijo}{str(count + 1).zfill(5)}"
+        codigo_barras = hashlib.md5(f"{data.nombres} {data.apellidos} {codigo}".encode()).hexdigest()
+
         cur.execute("""
-            INSERT INTO auxiliares (nombres, apellidos, codigo, dni, fecha_nacimiento,
-                genero, telefono, email, direccion, area_asignada, turno, fecha_ingreso, foto)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO auxiliares (nombres, apellidos, codigo, cargo, dni, fecha_nacimiento,
+                genero, telefono, email, direccion, area_asignada, turno, fecha_ingreso, foto, codigo_barras)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, codigo
         """, (
-            data.nombres, data.apellidos, codigo,
+            data.nombres, data.apellidos, codigo, data.cargo,
             data.dni or None, data.fecha_nacimiento or None,
             data.genero, data.telefono, data.email, data.direccion,
             data.area_asignada, data.turno,
-            data.fecha_ingreso or None, data.foto
+            data.fecha_ingreso or None, data.foto, codigo_barras
         ))
         result = cur.fetchone()
         conn.commit()
@@ -562,12 +622,12 @@ def actualizar_auxiliar(data: AuxiliarUpdate, usuario: str = Depends(verificar_t
     try:
         cur = conn.cursor()
         cur.execute("""
-            UPDATE auxiliares SET nombres=%s, apellidos=%s, dni=%s,
+            UPDATE auxiliares SET nombres=%s, apellidos=%s, cargo=%s, dni=%s,
                 fecha_nacimiento=%s, genero=%s, telefono=%s, email=%s,
                 direccion=%s, area_asignada=%s, turno=%s, fecha_ingreso=%s, foto=%s
             WHERE id=%s
         """, (
-            data.nombres, data.apellidos, data.dni or None,
+            data.nombres, data.apellidos, data.cargo, data.dni or None,
             data.fecha_nacimiento or None, data.genero, data.telefono,
             data.email, data.direccion, data.area_asignada, data.turno,
             data.fecha_ingreso or None, data.foto, data.id
@@ -603,22 +663,16 @@ class AuxiliarIngresoRequest(BaseModel):
     busqueda: str  # DNI o nombre
 
 @router.post("/auxiliares/ingreso")
-def ingreso_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verificar_token)):
+def ingreso_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("""
-            SELECT id, nombres, apellidos FROM auxiliares
-            WHERE dni = %s OR LOWER(nombres || ' ' || apellidos) LIKE %s
-            LIMIT 1
-        """, (data.busqueda, f"%{data.busqueda.lower()}%"))
+        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s", (data.codigo_barras,))
         row = cur.fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
-        auxiliar_id, nombres, apellidos = row
-        nombre_completo = f"{apellidos} {nombres}"
+            raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
+        auxiliar_id, nombre_completo = row
 
-        # Verificar si ya registró ingreso hoy
         cur.execute("""
             SELECT id FROM ingresos_auxiliares
             WHERE auxiliar_id = %s AND DATE(hora_ingreso) = %s
@@ -641,22 +695,16 @@ def ingreso_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verifi
         put_conn(conn)
 
 @router.post("/auxiliares/salida")
-def salida_auxiliar(data: AuxiliarIngresoRequest, usuario: str = Depends(verificar_token)):
+def salida_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("""
-            SELECT id, nombres, apellidos FROM auxiliares
-            WHERE dni = %s OR LOWER(nombres || ' ' || apellidos) LIKE %s
-            LIMIT 1
-        """, (data.busqueda, f"%{data.busqueda.lower()}%"))
+        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s", (data.codigo_barras,))
         row = cur.fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Auxiliar no encontrado")
-        auxiliar_id, nombres, apellidos = row
-        nombre_completo = f"{apellidos} {nombres}"
+            raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
+        auxiliar_id, nombre_completo = row
 
-        # Verificar si ya registró salida hoy
         cur.execute("""
             SELECT id FROM ingresos_auxiliares
             WHERE auxiliar_id = %s AND DATE(hora_ingreso) = %s AND hora_salida IS NOT NULL
@@ -761,6 +809,7 @@ class FotocheckSave(BaseModel):
     foto: str = ""
     codigo_barras: str = ""
     imagen_carnet: str = ""
+    tipo: str = "Estudiante"
 
 @router.post("/fotochecks/guardar")
 def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_token)):
@@ -768,34 +817,43 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
     try:
         cur = conn.cursor()
 
-        # Buscar estudiante_id si existe
-        cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s LIMIT 1",
-                    (f"%{data.nombre.lower()}%",))
-        est = cur.fetchone()
-        estudiante_id = est[0] if est else None
+        estudiante_id = None
+        docente_id = None
 
-        # Extraer grado y sección del campo grado (formato "1ro Primaria - A")
-        grado_val = None
-        seccion_val = None
-        if data.grado:
-            partes = data.grado.split(' - ')
-            grado_val = partes[0].strip() if partes else data.grado
-            seccion_val = partes[1].strip() if len(partes) > 1 else None
+        if data.tipo == "Estudiante":
+            cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s LIMIT 1",
+                        (f"%{data.nombre.lower()}%",))
+            est = cur.fetchone()
+            estudiante_id = est[0] if est else None
 
-        # Actualizar grado y sección del estudiante si existe
-        if estudiante_id and (grado_val or seccion_val):
-            cur.execute("""
-                UPDATE estudiantes SET grado = %s, seccion = %s WHERE id = %s
-            """, (grado_val, seccion_val, estudiante_id))
+            grado_val = None
+            seccion_val = None
+            if data.grado:
+                partes = data.grado.split(' - ')
+                grado_val = partes[0].strip() if partes else data.grado
+                seccion_val = partes[1].strip() if len(partes) > 1 else None
+
+            if estudiante_id and (grado_val or seccion_val):
+                cur.execute("""
+                    UPDATE estudiantes SET grado = %s, seccion = %s WHERE id = %s
+                """, (grado_val, seccion_val, estudiante_id))
+
+        elif data.tipo == "Docente":
+            cur.execute("SELECT id FROM docentes WHERE LOWER(nombre) LIKE %s LIMIT 1",
+                        (f"%{data.nombre.lower()}%",))
+            doc = cur.fetchone()
+            docente_id = doc[0] if doc else None
+
+        # Para Auxiliar no hay columna dedicada de FK en fotochecks; se guarda solo por nombre
 
         cur.execute("""
-            INSERT INTO fotochecks (estudiante_id, nombre_escuela, logo_escuela,
-                nombre, grado, anio, foto, codigo_barras, imagen_carnet)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO fotochecks (estudiante_id, docente_id, nombre_escuela, logo_escuela,
+                nombre, grado, anio, foto, codigo_barras, imagen_carnet, tipo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (estudiante_id, data.nombre_escuela, data.logo_escuela,
+        """, (estudiante_id, docente_id, data.nombre_escuela, data.logo_escuela,
               data.nombre, data.grado, data.anio, data.foto,
-              data.codigo_barras, data.imagen_carnet))
+              data.codigo_barras, data.imagen_carnet, data.tipo))
         fid = cur.fetchone()[0]
         conn.commit()
         cur.close()
@@ -807,17 +865,17 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
         put_conn(conn)
 
 @router.get("/fotochecks/lista")
-def lista_fotochecks(busqueda: str = "", pagina: int = 1, por_pagina: int = 12, usuario: str = Depends(verificar_token)):
+def lista_fotochecks(busqueda: str = "", tipo: str = "Estudiante", pagina: int = 1, por_pagina: int = 12, usuario: str = Depends(verificar_token)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute("""
             SELECT id, nombre_escuela, logo_escuela, nombre, grado,
-                   anio, foto, codigo_barras, imagen_carnet, created_at
+                   anio, foto, codigo_barras, imagen_carnet, created_at, tipo
             FROM fotochecks
-            WHERE LOWER(nombre) LIKE %s
+            WHERE LOWER(nombre) LIKE %s AND tipo = %s
             ORDER BY created_at DESC
-        """, (f"%{busqueda.lower()}%",))
+        """, (f"%{busqueda.lower()}%", tipo))
         rows = cur.fetchall()
         cur.close()
 
@@ -828,7 +886,8 @@ def lista_fotochecks(busqueda: str = "", pagina: int = 1, por_pagina: int = 12, 
                 "grado": r[4] or "", "anio": r[5] or "2026",
                 "foto": r[6] or "", "codigo_barras": r[7] or "",
                 "imagen_carnet": r[8] or "",
-                "fecha": str(r[9])[:10] if r[9] else ""
+                "fecha": str(r[9])[:10] if r[9] else "",
+                "tipo": r[10] or "Estudiante"
             }
             for r in rows
         ]

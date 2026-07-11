@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 export default function AuxiliarIngress() {
-  const [busqueda, setBusqueda] = useState('');
+  const [codigo, setCodigo] = useState('');
   const [status, setStatus] = useState(null);
   const [clock, setClock] = useState('');
   const inputRef = useRef(null);
@@ -20,14 +20,12 @@ export default function AuxiliarIngress() {
   }, []);
 
   const handleAction = async (tipo) => {
-    if (!busqueda.trim()) {
-      setStatus({ msg: 'Ingrese DNI o nombre del auxiliar.', color: 'warning' });
+    if (!codigo.trim()) {
+      setStatus({ msg: 'Ingrese un código de barras.', color: 'warning' });
       return;
     }
     try {
-      const res = await axios.post(`http://localhost:8000/auxiliares/${tipo}`, {
-        busqueda: busqueda.trim()
-      });
+      const res = await axios.post(`http://localhost:8000/auxiliares/${tipo}`, { codigo_barras: codigo });
       setStatus({
         msg: `${tipo === 'ingreso' ? '✔ Ingreso' : '◀ Salida'}: ${res.data.nombre} — ${res.data.hora}`,
         color: tipo === 'ingreso' ? 'success' : 'warning'
@@ -35,7 +33,7 @@ export default function AuxiliarIngress() {
     } catch (e) {
       setStatus({ msg: `✗ ${e.response?.data?.detail || 'Error'}`, color: 'danger' });
     }
-    setBusqueda('');
+    setCodigo('');
     inputRef.current?.focus();
   };
 
@@ -53,7 +51,7 @@ export default function AuxiliarIngress() {
           <span className="text-5xl">👷</span>
           <div>
             <h2 className="text-theme text-xl font-bold">Asistencia de Auxiliares</h2>
-            <p className="text-muted text-sm">Registro de ingreso y salida por DNI o nombre</p>
+            <p className="text-muted text-sm">Ingreso y salida mediante código de barras</p>
           </div>
         </div>
       </div>
@@ -64,18 +62,18 @@ export default function AuxiliarIngress() {
         <div className="border-t border-theme mb-6" />
 
         <div className="text-center mb-4">
-          <span className="text-5xl text-[#10b981]">🪪</span>
-          <p className="text-muted text-sm mt-2">Ingrese el DNI o nombre del auxiliar</p>
+          <span className="text-5xl text-[#10b981]">▤</span>
+          <p className="text-muted text-sm mt-2">Escanee o ingrese el código de barras</p>
         </div>
 
         <input
           ref={inputRef}
           type="text"
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
+          value={codigo}
+          onChange={e => setCodigo(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAction('ingreso')}
-          placeholder="DNI o nombre completo..."
-          className="w-full bg-theme3 border border-[#10b981] text-theme rounded-xl px-4 py-3 text-sm focus:outline-none mb-6"
+          placeholder="Código de barras..."
+          className="w-full bg-theme3 border border-[#10b981] text-theme rounded-xl px-4 py-3 text-sm font-mono focus:outline-none mb-6"
         />
 
         <div className="flex gap-3 mb-6">

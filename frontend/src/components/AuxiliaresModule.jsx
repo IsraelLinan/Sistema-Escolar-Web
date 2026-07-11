@@ -3,12 +3,19 @@ import axios from 'axios';
 
 const TURNOS = ['Mañana', 'Tarde', 'Noche'];
 const GENEROS = ['Masculino', 'Femenino'];
+const CARGOS = ['Docente', 'Auxiliar', 'Personal Administrativo'];
 
 const initialForm = {
-  nombres: '', apellidos: '', dni: '', fecha_nacimiento: '',
+  cargo: 'Auxiliar', nombres: '', apellidos: '', dni: '', fecha_nacimiento: '',
   genero: 'Masculino', telefono: '', email: '', direccion: '',
   area_asignada: '', turno: '', fecha_ingreso: new Date().toISOString().split('T')[0],
   foto: ''
+};
+
+const cargoColor = (cargo) => {
+  if (cargo === 'Docente') return 'bg-[#22c55e20] text-[#22c55e] border-[#22c55e]';
+  if (cargo === 'Personal Administrativo') return 'bg-[#f43f5e20] text-[#f43f5e] border-[#f43f5e]';
+  return 'bg-[#8b5cf620] text-[#8b5cf6] border-[#8b5cf6]';
 };
 
 export default function AuxiliaresModule() {
@@ -16,6 +23,7 @@ export default function AuxiliaresModule() {
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [filtroTurno, setFiltroTurno] = useState('');
+  const [filtroCargo, setFiltroCargo] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(initialForm);
@@ -23,17 +31,17 @@ export default function AuxiliaresModule() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const fotoRef = useRef(null);
 
-  useEffect(() => { fetchAuxiliares(); }, [busqueda, filtroTurno]);
+  useEffect(() => { fetchAuxiliares(); }, [busqueda, filtroCargo]);
 
   const fetchAuxiliares = async () => {
     setLoading(true);
     try {
       const res = await axios.get('http://localhost:8000/auxiliares/lista', {
-        params: { busqueda, turno: filtroTurno }
+        params: { busqueda, cargo: filtroCargo }
       });
       setAuxiliares(res.data.auxiliares);
     } catch (e) {
-      showMensaje('Error al cargar auxiliares.', 'error');
+      showMensaje('Error al cargar registros.', 'error');
     } finally {
       setLoading(false);
     }
@@ -61,10 +69,10 @@ export default function AuxiliaresModule() {
     try {
       if (editando) {
         await axios.put('http://localhost:8000/auxiliares/actualizar', { ...form, id: editando });
-        showMensaje('✔ Auxiliar actualizado correctamente.', 'success');
+        showMensaje('✔ Registro actualizado correctamente.', 'success');
       } else {
         await axios.post('http://localhost:8000/auxiliares/crear', form);
-        showMensaje('✔ Auxiliar registrado correctamente.', 'success');
+        showMensaje('✔ Registrado correctamente.', 'success');
       }
       setShowForm(false);
       setEditando(null);
@@ -77,6 +85,7 @@ export default function AuxiliaresModule() {
 
   const handleEditar = (aux) => {
     setForm({
+      cargo: aux.cargo || 'Auxiliar',
       nombres: aux.nombres, apellidos: aux.apellidos, dni: aux.dni,
       fecha_nacimiento: aux.fecha_nacimiento, genero: aux.genero,
       telefono: aux.telefono, email: aux.email, direccion: aux.direccion,
@@ -90,7 +99,7 @@ export default function AuxiliaresModule() {
   const handleEliminar = async (id) => {
     try {
       await axios.delete(`http://localhost:8000/auxiliares/eliminar/${id}`);
-      showMensaje('✔ Auxiliar eliminado.', 'success');
+      showMensaje('✔ Registro eliminado.', 'success');
       setConfirmDelete(null);
       fetchAuxiliares();
     } catch (e) {
@@ -112,10 +121,10 @@ export default function AuxiliaresModule() {
       <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="text-5xl">👷</span>
+            <span className="text-5xl">🗂️</span>
             <div>
-              <h2 className="text-theme text-xl font-bold">Registro de Auxiliares</h2>
-              <p className="text-muted text-sm">Gestiona el personal auxiliar de la institución</p>
+              <h2 className="text-theme text-xl font-bold">Registro Administrativo</h2>
+              <p className="text-muted text-sm">Gestiona docentes, auxiliares y personal administrativo</p>
             </div>
           </div>
           <button
@@ -140,12 +149,23 @@ export default function AuxiliaresModule() {
       {showForm && (
         <div className="bg-theme2 border border-theme rounded-2xl p-6 mb-4">
           <h3 className="text-theme font-bold text-base mb-6">
-            {editando ? '✏ Editar Auxiliar' : '+ Nuevo Auxiliar'}
+            {editando ? '✏ Editar Registro' : '+ Nuevo Registro'}
           </h3>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Datos */}
             <div className="lg:col-span-2 space-y-4">
+
+              {/* Cargo */}
+              <div className="bg-theme3 rounded-xl p-4">
+                <p className="text-[#8b5cf6] text-xs font-bold uppercase mb-3">🧾 Cargo</p>
+                <select value={form.cargo}
+                  onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
+                  className="w-full bg-theme2 border border-theme text-theme rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#8b5cf6]"
+                >
+                  {CARGOS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
 
               {/* Datos personales */}
               <div className="bg-theme3 rounded-xl p-4">
@@ -278,7 +298,7 @@ export default function AuxiliaresModule() {
               onClick={handleSubmit}
               className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-bold px-6 py-3 rounded-xl transition text-sm"
             >
-              {editando ? '💾 Actualizar' : '✔ Registrar Auxiliar'}
+              {editando ? '💾 Actualizar' : '✔ Registrar'}
             </button>
           </div>
         </div>
@@ -294,12 +314,12 @@ export default function AuxiliaresModule() {
           className="flex-1 bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#8b5cf6]"
         />
         <select
-          value={filtroTurno}
-          onChange={e => setFiltroTurno(e.target.value)}
+          value={filtroCargo}
+          onChange={e => setFiltroCargo(e.target.value)}
           className="bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#8b5cf6]"
         >
-          <option value="">Todos los turnos</option>
-          {TURNOS.map(t => <option key={t}>{t}</option>)}
+          <option value="">Todos los cargos</option>
+          {CARGOS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
@@ -307,26 +327,27 @@ export default function AuxiliaresModule() {
       <div className="bg-theme2 border border-theme rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-theme flex items-center justify-between">
           <p className="text-theme font-bold text-sm">
-            Auxiliares <span className="text-[#8b5cf6] ml-2">{auxiliares.length}</span>
+            Registros <span className="text-[#8b5cf6] ml-2">{auxiliares.length}</span>
           </p>
         </div>
 
         {loading ? (
           <div className="text-center py-12 text-muted text-sm">Cargando...</div>
         ) : auxiliares.length === 0 ? (
-          <div className="text-center py-12 text-muted text-sm">👷 No hay auxiliares registrados.</div>
+          <div className="text-center py-12 text-muted text-sm">🗂️ No hay registros aún.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-theme">
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Auxiliar</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Código</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">DNI</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Área</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Turno</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Teléfono</th>
-                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Acciones</th>
+                  <th className="text-left px-6 py-3 text-muted text-xs font-bold uppercase">Nombre</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Cargo</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Código</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">DNI</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Área</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Turno</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Teléfono</th>
+                  <th className="text-left px-4 py-3 text-muted text-xs font-bold uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -342,27 +363,38 @@ export default function AuxiliaresModule() {
                           )}
                         </div>
                         <div>
-                          <p className="text-theme font-bold">{aux.apellidos}, {aux.nombres}</p>
+                          <p className="text-theme font-bold">
+                            {aux.apellidos ? `${aux.apellidos}, ${aux.nombres}` : aux.nombres}
+                          </p>
                           <p className="text-muted text-xs">{aux.email || '—'}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${cargoColor(aux.cargo)}`}>
+                        {aux.cargo || 'Auxiliar'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
                       <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#8b5cf620] text-[#8b5cf6] border border-[#8b5cf6]">
                         {aux.codigo}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-muted">{aux.dni || '—'}</td>
-                    <td className="px-6 py-4 text-muted">{aux.area_asignada || '—'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4 text-muted">{aux.dni || '—'}</td>
+                    <td className="px-4 py-4 text-muted">{aux.area_asignada || '—'}</td>
+                    <td className="px-4 py-4">
                       {aux.turno ? (
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${turnoColor(aux.turno)}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                          aux.turno === 'Mañana' ? 'bg-[#f59e0b20] text-[#f59e0b] border-[#f59e0b]' :
+                          aux.turno === 'Tarde' ? 'bg-[#4f8ef720] text-[#4f8ef7] border-[#4f8ef7]' :
+                          'bg-[#a855f720] text-[#a855f7] border-[#a855f7]'
+                        }`}>
                           {aux.turno}
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="px-6 py-4 text-muted">{aux.telefono || '—'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4 text-muted">{aux.telefono || '—'}</td>
+                    <td className="px-4 py-4">
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEditar(aux)}
@@ -386,7 +418,7 @@ export default function AuxiliaresModule() {
       {confirmDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
           <div className="bg-theme2 border border-theme rounded-2xl p-6 max-w-sm w-full mx-4">
-            <p className="text-theme font-bold text-lg mb-2">¿Eliminar auxiliar?</p>
+            <p className="text-theme font-bold text-lg mb-2">¿Eliminar registro?</p>
             <p className="text-muted text-sm mb-6">Esta acción no se puede deshacer.</p>
             <div className="flex gap-3">
               <button

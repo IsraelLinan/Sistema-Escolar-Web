@@ -68,15 +68,15 @@ export default function BarcodeGenerator() {
           value={nombre}
           onChange={e => setNombre(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleGenerar()}
-          placeholder="Ej: García López, Juan Carlos"
+          placeholder="Ej: García López Juan Carlos"
           className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#a855f7] mb-4"
         />
 
         <label className="block text-muted text-xs font-bold uppercase mb-3">
           Tipo de Persona
         </label>
-        <div className="flex gap-6 mb-6">
-          {['Estudiante', 'Docente'].map(t => (
+        <div className="flex gap-6 mb-6 flex-wrap">
+          {['Estudiante', 'Docente', 'Auxiliar'].map(t => (
             <label key={t} className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio" value={t}
