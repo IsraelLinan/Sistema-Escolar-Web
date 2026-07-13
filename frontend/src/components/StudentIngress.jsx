@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function StudentIngress() {
   const [codigo, setCodigo] = useState('');
@@ -25,7 +26,7 @@ export default function StudentIngress() {
       return;
     }
     try {
-      const res = await axios.post(`http://localhost:8000/estudiantes/${tipo}`, { codigo_barras: codigo });
+      const res = await axios.post(`${API_URL}/estudiantes/${tipo}`, { codigo_barras: codigo });
       setStatus({
         msg: `${tipo === 'ingreso' ? '✔ Ingreso' : '◀ Salida'}: ${res.data.nombre} — ${res.data.hora}`,
         color: tipo === 'ingreso' ? 'success' : 'warning'

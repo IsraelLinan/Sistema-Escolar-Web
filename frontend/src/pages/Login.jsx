@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 import useTheme from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -18,7 +19,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post('http://localhost:8000/auth/login', { username, password });
+      const res = await axios.post(`${API_URL}/auth/login`, { username, password });
       localStorage.setItem('authenticated', 'true');
       localStorage.setItem('token', res.data.token);
       window.location.href = '/dashboard';

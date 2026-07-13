@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function FotocheckGenerator() {
   const [foto, setFoto] = useState(null);
@@ -46,7 +47,7 @@ export default function FotocheckGenerator() {
     setError('');
     try {
       const res = await axios.get(
-        `http://localhost:8000/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}`
+        `${API_URL}/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}`
       );
       setImagenCodigo(res.data.imagen);
       setCodigoBarras(res.data.codigo);
@@ -90,7 +91,7 @@ export default function FotocheckGenerator() {
         scale: 3, useCORS: true, backgroundColor: null,
       });
       const imagenCarnet = canvas.toDataURL('image/png');
-      await axios.post('http://localhost:8000/fotochecks/guardar', {
+      await axios.post(`${API_URL}/fotochecks/guardar`, {
         nombre_escuela: '',
         logo_escuela: logoEscuela || '',
         nombre,

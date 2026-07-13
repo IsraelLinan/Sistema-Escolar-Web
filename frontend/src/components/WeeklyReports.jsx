@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function WeeklyReports() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -18,7 +19,7 @@ export default function WeeklyReports() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get(`http://localhost:8000/reportes/asistencia`, {
+      const res = await axios.get(`${API_URL}/reportes/asistencia`, {
         params: { fecha, tipo: filtro === 'Todos' ? null : filtro, pagina: pag, por_pagina: POR_PAGINA }
       });
       setRegistros(res.data.registros);
@@ -34,7 +35,7 @@ export default function WeeklyReports() {
 
   const fetchTotales = async () => {
     try {
-      const res = await axios.get(`http://localhost:8000/reportes/asistencia`, {
+      const res = await axios.get(`${API_URL}/reportes/asistencia`, {
         params: { fecha, por_pagina: 9999, pagina: 1 }
       });
       const todos = res.data.registros;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function ApoderadosManager() {
   const [estudiantes, setEstudiantes] = useState([]);
@@ -16,7 +17,7 @@ export default function ApoderadosManager() {
   const fetchEstudiantes = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/apoderados/lista');
+      const res = await axios.get(`${API_URL}/apoderados/lista`);
       setEstudiantes(res.data.estudiantes);
     } catch (e) {
       setMensaje({ text: 'Error al cargar estudiantes.', type: 'error' });
@@ -38,7 +39,7 @@ export default function ApoderadosManager() {
 
   const handleGuardar = async (estudianteId) => {
     try {
-      await axios.put('http://localhost:8000/apoderados/actualizar', {
+      await axios.put(`${API_URL}/apoderados/actualizar`, {
         estudiante_id: estudianteId,
         apoderado_nombre: apoderadoNombre,
         apoderado_chat_id: apoderadoChatId
@@ -54,7 +55,7 @@ export default function ApoderadosManager() {
   const handleProbar = async (est) => {
     setProbando(est.id);
     try {
-      await axios.post('http://localhost:8000/apoderados/probar-notificacion', {
+      await axios.post(`${API_URL}/apoderados/probar-notificacion`, {
         chat_id: est.apoderado_chat_id,
         nombre: est.nombre
       });

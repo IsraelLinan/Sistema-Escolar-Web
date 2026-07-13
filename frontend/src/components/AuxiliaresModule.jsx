@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 const TURNOS = ['Mañana', 'Tarde', 'Noche'];
 const GENEROS = ['Masculino', 'Femenino'];
@@ -36,7 +37,7 @@ export default function AuxiliaresModule() {
   const fetchAuxiliares = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/auxiliares/lista', {
+      const res = await axios.get(`${API_URL}/auxiliares/lista`, {
         params: { busqueda, cargo: filtroCargo }
       });
       setAuxiliares(res.data.auxiliares);
@@ -68,10 +69,10 @@ export default function AuxiliaresModule() {
     }
     try {
       if (editando) {
-        await axios.put('http://localhost:8000/auxiliares/actualizar', { ...form, id: editando });
+        await axios.put(`${API_URL}/auxiliares/actualizar`, { ...form, id: editando });
         showMensaje('✔ Registro actualizado correctamente.', 'success');
       } else {
-        await axios.post('http://localhost:8000/auxiliares/crear', form);
+        await axios.post(`${API_URL}/auxiliares/crear`, form);
         showMensaje('✔ Registrado correctamente.', 'success');
       }
       setShowForm(false);
@@ -98,7 +99,7 @@ export default function AuxiliaresModule() {
 
   const handleEliminar = async (id) => {
     try {
-      await axios.delete(`http://localhost:8000/auxiliares/eliminar/${id}`);
+      await axios.delete(`${API_URL}/auxiliares/eliminar/${id}`);
       showMensaje('✔ Registro eliminado.', 'success');
       setConfirmDelete(null);
       fetchAuxiliares();

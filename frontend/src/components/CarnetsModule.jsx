@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 import jsPDF from 'jspdf';
 
 const TABS = [
@@ -32,7 +33,7 @@ export default function CarnetsModule() {
   const fetchFotochecks = async (pag = pagina) => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/fotochecks/lista', {
+      const res = await axios.get(`${API_URL}/fotochecks/lista`, {
         params: { busqueda, tipo, pagina: pag, por_pagina: POR_PAGINA }
       });
       setFotochecks(res.data.fotochecks);
@@ -100,7 +101,7 @@ export default function CarnetsModule() {
 
   const handleEliminar = async (id) => {
     try {
-      await axios.delete(`http://localhost:8000/fotochecks/eliminar/${id}`);
+      await axios.delete(`${API_URL}/fotochecks/eliminar/${id}`);
       showMensaje('✔ Carnet eliminado.', 'success');
       setConfirmDelete(null);
       fetchFotochecks(pagina);

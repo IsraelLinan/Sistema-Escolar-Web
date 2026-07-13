@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 const TIPOS = [
   { valor: 'general',    label: 'General',    color: '#4f8ef7' },
@@ -37,7 +38,7 @@ export default function AgendaEscolar() {
   const fetchEventos = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8000/agenda/eventos', {
+      const res = await axios.get(`${API_URL}/agenda/eventos`, {
         params: { mes: mes + 1, anio }
       });
       setEventos(res.data.eventos);
@@ -60,10 +61,10 @@ export default function AgendaEscolar() {
     }
     try {
       if (editando) {
-        await axios.put('http://localhost:8000/agenda/actualizar', { ...form, id: editando });
+        await axios.put(`${API_URL}/agenda/actualizar`, { ...form, id: editando });
         showMensaje('✔ Evento actualizado.', 'success');
       } else {
-        await axios.post('http://localhost:8000/agenda/crear', form);
+        await axios.post(`${API_URL}/agenda/crear`, form);
         showMensaje('✔ Evento creado correctamente.', 'success');
       }
       setShowForm(false);
@@ -89,7 +90,7 @@ export default function AgendaEscolar() {
 
   const handleEliminar = async (id) => {
     try {
-      await axios.delete(`http://localhost:8000/agenda/eliminar/${id}`);
+      await axios.delete(`${API_URL}/agenda/eliminar/${id}`);
       showMensaje('✔ Evento eliminado.', 'success');
       setConfirmDelete(null);
       fetchEventos();

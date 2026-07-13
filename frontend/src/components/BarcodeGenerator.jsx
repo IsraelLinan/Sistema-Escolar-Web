@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function BarcodeGenerator() {
   const [nombre, setNombre] = useState('');
@@ -17,7 +18,7 @@ export default function BarcodeGenerator() {
     setError('');
     setResultado(null);
     try {
-      const res = await axios.post('http://localhost:8000/codigos/generar', {
+      const res = await axios.post(`${API_URL}/codigos/generar`, {
         nombre: nombre.trim(),
         tipo_persona: tipo
       });

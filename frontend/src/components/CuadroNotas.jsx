@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function CuadroNotas() {
   const [materias, setMaterias] = useState([]);
@@ -27,7 +28,7 @@ export default function CuadroNotas() {
 
   const fetchMaterias = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/notas/materias');
+      const res = await axios.get(`${API_URL}/notas/materias`);
       setMaterias(res.data.materias);
       if (res.data.materias.length > 0 && !materiaSeleccionada) {
         setMateriaSeleccionada(res.data.materias[0].id.toString());
@@ -41,7 +42,7 @@ export default function CuadroNotas() {
       const params = { anio, materia_id: materiaSeleccionada };
       if (gradoSeleccionado) params.grado = gradoSeleccionado;
       if (seccionSeleccionada) params.seccion = seccionSeleccionada;
-      const res = await axios.get('http://localhost:8000/notas/cuadro', { params });
+      const res = await axios.get(`${API_URL}/notas/cuadro`, { params });
       setEstudiantes(res.data.estudiantes);
       setGrados(res.data.grados || []);
     } catch (e) { console.error(e); }
@@ -50,7 +51,7 @@ export default function CuadroNotas() {
 
   const fetchNotasEstudiante = async (est) => {
     try {
-      const res = await axios.get(`http://localhost:8000/notas/estudiante/${est.id}`, {
+      const res = await axios.get(`${API_URL}/notas/estudiante/${est.id}`, {
         params: { anio }
       });
       setNotasDetalle(res.data.notas);
@@ -70,7 +71,7 @@ export default function CuadroNotas() {
       return;
     }
     try {
-      await axios.post('http://localhost:8000/notas/guardar', {
+      await axios.post(`${API_URL}/notas/guardar`, {
         estudiante_id: estudianteId,
         materia_id: parseInt(materiaSeleccionada),
         anio, bimestre, nota, observacion: ''
@@ -88,7 +89,7 @@ export default function CuadroNotas() {
   const handleCrearMateria = async () => {
     if (!nuevaMateria.trim()) return;
     try {
-      await axios.post('http://localhost:8000/notas/materias/crear', {
+      await axios.post(`${API_URL}/notas/materias/crear`, {
         nombre: nuevaMateria.trim(), grado: 'General'
       });
       showMensajeF('✔ Materia creada.', 'success');
@@ -101,7 +102,7 @@ export default function CuadroNotas() {
 
   const handleEliminarMateria = async (id) => {
     try {
-      await axios.delete(`http://localhost:8000/notas/materias/eliminar/${id}`);
+      await axios.delete(`${API_URL}/notas/materias/eliminar/${id}`);
       showMensajeF('✔ Materia eliminada.', 'success');
       fetchMaterias();
       if (materiaSeleccionada === id.toString()) setMateriaSeleccionada('');
