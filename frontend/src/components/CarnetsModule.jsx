@@ -3,6 +3,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import jsPDF from 'jspdf';
 import ConfirmDeleteModal from './common/ConfirmDeleteModal';
+import Paginacion from './common/Paginacion';
 
 const TABS = [
   { valor: 'Estudiante', label: '🎓 Estudiantes', color: '#3b82f6' },
@@ -255,46 +256,12 @@ export default function CarnetsModule() {
             Página <span className="text-theme font-bold">{pagina}</span> de{' '}
             <span className="text-theme font-bold">{totalPaginas}</span>
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handlePagina(1)}
-              disabled={pagina === 1}
-              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
-            >«</button>
-            <button
-              onClick={() => handlePagina(pagina - 1)}
-              disabled={pagina === 1}
-              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
-            >‹</button>
-            {Array.from({ length: totalPaginas }, (_, i) => i + 1)
-              .filter(p => p === 1 || p === totalPaginas || Math.abs(p - pagina) <= 1)
-              .map((p, idx, arr) => (
-                <>
-                  {idx > 0 && arr[idx - 1] !== p - 1 && (
-                    <span key={`dots-${p}`} className="text-muted px-1 py-2 text-xs">...</span>
-                  )}
-                  <button
-                    key={p}
-                    onClick={() => handlePagina(p)}
-                    style={p === pagina ? { backgroundColor: colorActivo, borderColor: colorActivo } : {}}
-                    className={`text-xs font-bold px-3 py-2 rounded-lg transition border ${
-                      p === pagina ? 'text-white' : 'bg-theme3 hover:bg-theme border-theme text-theme'
-                    }`}
-                  >{p}</button>
-                </>
-              ))
-            }
-            <button
-              onClick={() => handlePagina(pagina + 1)}
-              disabled={pagina === totalPaginas}
-              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
-            >›</button>
-            <button
-              onClick={() => handlePagina(totalPaginas)}
-              disabled={pagina === totalPaginas}
-              className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-40"
-            >»</button>
-          </div>
+          <Paginacion
+            pagina={pagina}
+            totalPaginas={totalPaginas}
+            onCambiarPagina={handlePagina}
+            colorActivo={colorActivo}
+          />
         </div>
       )}
 
