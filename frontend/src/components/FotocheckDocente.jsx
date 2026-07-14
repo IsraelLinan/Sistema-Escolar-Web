@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
+import useImageUpload from '../hooks/useImageUpload';
 import { API_URL } from '../config';
 
 export default function FotocheckDocente() {
-  const [foto, setFoto] = useState(null);
-  const [logoEscuela, setLogoEscuela] = useState(null);
+  const { imagen: foto, handleImagen: handleFoto } = useImageUpload(null);
+  const { imagen: logoEscuela, handleImagen: handleLogo } = useImageUpload(null);
   const [nombre, setNombre] = useState('');
   const [anio, setAnio] = useState(new Date().getFullYear().toString());
   const [codigoBarras, setCodigoBarras] = useState('');
@@ -17,24 +18,6 @@ export default function FotocheckDocente() {
   const [error, setError] = useState('');
   const [exitoGuardar, setExitoGuardar] = useState('');
   const fotocheckRef = useRef(null);
-
-  const handleFoto = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setFoto(ev.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleLogo = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setLogoEscuela(ev.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
 
   const buscarCodigo = async () => {
     if (!nombre.trim()) {
