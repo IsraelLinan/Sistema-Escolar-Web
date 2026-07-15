@@ -89,7 +89,7 @@ export default function Login() {
           {loading ? 'Verificando...' : 'Iniciar Sesión'}
         </button>
 
-        <p className="text-center text-muted text-xs mt-6">v2.0 • Sistema de Gestión Escolar</p>
+        <p className="text-center text-muted text-xs mt-6">Desarrollado por Ing. Israel Linan</p>
       </div>
     </div>
   );

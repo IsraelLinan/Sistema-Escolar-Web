@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from colegio_lib import db_pool
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ── CSS personalizado (tema oscuro coherente con la app desktop) ─────────────
+# ── CSS personalizado (tema claro) ────────────────────────────────────────────
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -22,105 +22,97 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     .stApp {
-        background-color: #0f1117;
+        background-color: #f1f5f9;
     }
-    /* Ocultar elementos de Streamlit por defecto */
     #MainMenu, footer, header { visibility: hidden; }
 
-    /* Tarjetas de métricas */
     [data-testid="metric-container"] {
-        background: #1a1d27;
-        border: 1px solid #2e3350;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 14px;
         padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     [data-testid="metric-container"] label {
-        color: #94a3b8 !important;
+        color: #64748b !important;
         font-size: 12px !important;
         font-weight: 600 !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
     [data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: #e2e8f0 !important;
+        color: #0f172a !important;
         font-size: 36px !important;
         font-weight: 700 !important;
     }
-    [data-testid="metric-container"] [data-testid="stMetricDelta"] {
-        font-size: 13px !important;
-    }
 
-    /* Título principal */
     .main-title {
         font-size: 28px;
         font-weight: 700;
-        color: #e2e8f0;
+        color: #0f172a;
         margin-bottom: 2px;
     }
     .main-subtitle {
         font-size: 14px;
-        color: #94a3b8;
+        color: #64748b;
         margin-bottom: 0;
     }
-    .header-bar {
-        background: #1a1d27;
-        border: 1px solid #2e3350;
-        border-radius: 14px;
-        padding: 18px 24px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
+    .section-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 8px 0 12px 0;
     }
 
-    /* Input de fecha */
     [data-testid="stDateInput"] {
-        background: #1a1d27;
+        background: #ffffff;
     }
     input[type="date"] {
-        background-color: #22263a !important;
-        color: #e2e8f0 !important;
-        border: 1px solid #2e3350 !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 8px !important;
         padding: 8px 12px !important;
     }
 
-    /* Mensaje de info */
     .stAlert {
-        background: #1a1d27!important;
-        border: 1px solid #2e3350 !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 12px !important;
-        color: #94a3b8 !important;
+        color: #64748b !important;
     }
 
-    /* Separador */
-    hr { border-color: #2e3350; }
+    hr { border-color: #e2e8f0; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── Colores para gráficos ────────────────────────────────────────────────────
+# ── Colores ───────────────────────────────────────────────────────────────────
 CHART_COLORS = {
     "Estudiantes": "#4f8ef7",
     "Docentes":    "#22c55e",
+    "Auxiliares":  "#f59e0b",
 }
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font_color="#94a3b8",
+    font_color="#64748b",
     font_family="Inter",
     margin=dict(l=20, r=20, t=40, b=20),
     legend=dict(
-        bgcolor="rgba(26,29,39,0.8)",
-        bordercolor="#2e3350",
+        bgcolor="rgba(255,255,255,0.8)",
+        bordercolor="#e2e8f0",
         borderwidth=1,
-        font_color="#e2e8f0"
+        font_color="#0f172a"
     )
 )
 
 
+# ── Consultas a la base de datos ──────────────────────────────────────────────
+
 @st.cache_data(ttl=60)
 def get_data_for_dashboard(selected_date):
+    """Totales de ingresos del día seleccionado, por tipo de personal."""
     conn = None
     try:
         conn = db_pool.get_conn()
@@ -134,8 +126,11 @@ def get_data_for_dashboard(selected_date):
             UNION ALL
             SELECT 'Docentes' AS tipo, COUNT(*) AS cantidad FROM ingresos_docentes
             WHERE hora_ingreso BETWEEN %s AND %s
+            UNION ALL
+            SELECT 'Auxiliares' AS tipo, COUNT(*) AS cantidad FROM ingresos_auxiliares
+            WHERE hora_ingreso BETWEEN %s AND %s
             """,
-            (start, end, start, end)
+            (start, end, start, end, start, end)
         )
         data = cur.fetchall()
         cur.close()
@@ -150,38 +145,59 @@ def get_data_for_dashboard(selected_date):
 
 @st.cache_data(ttl=60)
 def get_weekly_trend(selected_date):
-    """Obtiene los últimos 7 días de ingresos para mostrar tendencia."""
+    """Tendencia de lunes a viernes de la semana que contiene selected_date."""
     conn = None
     try:
+        # Calcular el lunes y el viernes de la semana de selected_date
+        lunes = selected_date - timedelta(days=selected_date.weekday())
+        viernes = lunes + timedelta(days=4)
+
         conn = db_pool.get_conn()
         cur = conn.cursor()
         cur.execute(
             """
             SELECT DATE(hora_ingreso) as fecha, COUNT(*) as cantidad, 'Estudiantes' as tipo
             FROM ingresos_estudiantes
-            WHERE hora_ingreso >= %s::date - INTERVAL '6 days'
+            WHERE DATE(hora_ingreso) BETWEEN %s AND %s
             GROUP BY DATE(hora_ingreso)
             UNION ALL
             SELECT DATE(hora_ingreso) as fecha, COUNT(*) as cantidad, 'Docentes' as tipo
             FROM ingresos_docentes
-            WHERE hora_ingreso >= %s::date - INTERVAL '6 days'
+            WHERE DATE(hora_ingreso) BETWEEN %s AND %s
+            GROUP BY DATE(hora_ingreso)
+            UNION ALL
+            SELECT DATE(hora_ingreso) as fecha, COUNT(*) as cantidad, 'Auxiliares' as tipo
+            FROM ingresos_auxiliares
+            WHERE DATE(hora_ingreso) BETWEEN %s AND %s
             GROUP BY DATE(hora_ingreso)
             ORDER BY fecha
             """,
-            (selected_date, selected_date)
+            (lunes, viernes, lunes, viernes, lunes, viernes)
         )
         data = cur.fetchall()
         cur.close()
-        return pd.DataFrame(data, columns=['fecha', 'cantidad', 'tipo'])
+        df = pd.DataFrame(data, columns=['fecha', 'cantidad', 'tipo'])
+
+        # Rellenar los 5 días (lunes a viernes) aunque no tengan registros
+        dias_semana = pd.date_range(lunes, viernes, freq='D')
+        base = pd.MultiIndex.from_product(
+            [dias_semana.date, ['Estudiantes', 'Docentes', 'Auxiliares']],
+            names=['fecha', 'tipo']
+        ).to_frame(index=False)
+        df = base.merge(df, on=['fecha', 'tipo'], how='left').fillna({'cantidad': 0})
+        df['cantidad'] = df['cantidad'].astype(int)
+        return df, lunes, viernes
     except Exception:
-        return pd.DataFrame()
+        return pd.DataFrame(), None, None
     finally:
         if conn:
             db_pool.put_conn(conn)
 
 
+# ── Dashboard ──────────────────────────────────────────────────────────────────
+
 def create_dashboard():
-    # ── Encabezado ────────────────────────────────────────────────────────────
+    # Encabezado
     col_title, col_date = st.columns([3, 1])
     with col_title:
         st.markdown("""
@@ -196,82 +212,83 @@ def create_dashboard():
 
     st.markdown("---")
 
-    # ── Datos ─────────────────────────────────────────────────────────────────
+    # Datos
     df = get_data_for_dashboard(selected_date)
-    df_trend = get_weekly_trend(selected_date)
+    df_trend, lunes, viernes = get_weekly_trend(selected_date)
 
-    if df.empty or df['cantidad'].sum() == 0:
-        st.info(f"📭  No hay registros de ingresos para el **{selected_date.strftime('%d de %B de %Y')}**.")
-        return
+    est = int(df[df['tipo'] == 'Estudiantes']['cantidad'].values[0]) if not df.empty and 'Estudiantes' in df['tipo'].values else 0
+    doc = int(df[df['tipo'] == 'Docentes']['cantidad'].values[0])    if not df.empty and 'Docentes'    in df['tipo'].values else 0
+    aux = int(df[df['tipo'] == 'Auxiliares']['cantidad'].values[0])  if not df.empty and 'Auxiliares'  in df['tipo'].values else 0
 
-    total = int(df['cantidad'].sum())
-    est   = int(df[df['tipo'] == 'Estudiantes']['cantidad'].values[0]) if 'Estudiantes' in df['tipo'].values else 0
-    doc   = int(df[df['tipo'] == 'Docentes']['cantidad'].values[0])    if 'Docentes'    in df['tipo'].values else 0
-
-    # ── Métricas superiores ───────────────────────────────────────────────────
+    # ── 1. Tarjetas de totales ────────────────────────────────────────────────
     m1, m2, m3 = st.columns(3)
     with m1:
-        st.metric("Total de Ingresos", total)
+        st.metric("🎓 Estudiantes", est)
     with m2:
-        st.metric("Estudiantes", est, delta=f"{round(est/total*100)}% del total" if total else None)
+        st.metric("👨‍🏫 Docentes", doc)
     with m3:
-        st.metric("Docentes", doc, delta=f"{round(doc/total*100)}% del total" if total else None)
+        st.metric("👷 Auxiliares", aux)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Gráficos principales ──────────────────────────────────────────────────
-    g1, g2 = st.columns(2)
+    if est + doc + aux == 0:
+        st.info(f"📭  No hay registros de ingresos para el **{selected_date.strftime('%d de %B de %Y')}**.")
+    else:
+        # ── 2. Gráfico de barras + pastel ────────────────────────────────────
+        st.markdown(f"<p class='section-title'>📊 Ingresos del {selected_date.strftime('%d/%m/%Y')}</p>", unsafe_allow_html=True)
+        g1, g2 = st.columns(2)
 
-    with g1:
-        fig_bar = px.bar(
-            df, x='tipo', y='cantidad',
-            title=f'Ingresos del {selected_date.strftime("%d/%m/%Y")}',
-            labels={'tipo': '', 'cantidad': 'Ingresos'},
-            color='tipo',
-            color_discrete_map=CHART_COLORS,
-            text='cantidad'
-        )
-        fig_bar.update_traces(textposition="outside", textfont_size=14,
-                              marker_line_width=0, width=0.45)
-        fig_bar.update_xaxes(showgrid=False, tickfont_color="#94a3b8")
-        fig_bar.update_yaxes(showgrid=True, gridcolor="#2e3350",
-                             tickfont_color="#94a3b8")
-        fig_bar.update_layout(**PLOTLY_LAYOUT, showlegend=False,
-                              title_font_color="#e2e8f0", title_font_size=14)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        with g1:
+            fig_bar = px.bar(
+                df, x='tipo', y='cantidad',
+                labels={'tipo': '', 'cantidad': 'Ingresos'},
+                color='tipo',
+                color_discrete_map=CHART_COLORS,
+                text='cantidad'
+            )
+            fig_bar.update_traces(textposition="outside", textfont_size=14,
+                                  marker_line_width=0, width=0.45)
+            fig_bar.update_xaxes(showgrid=False, tickfont_color="#64748b")
+            fig_bar.update_yaxes(showgrid=True, gridcolor="#e2e8f0",
+                                 tickfont_color="#64748b")
+            fig_bar.update_layout(**PLOTLY_LAYOUT, showlegend=False)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-    with g2:
-        fig_pie = px.pie(
-            df, values='cantidad', names='tipo',
-            title='Distribución Estudiantes / Docentes',
-            color='tipo', color_discrete_map=CHART_COLORS,
-            hole=0.55
-        )
-        fig_pie.update_traces(textfont_color="#e2e8f0", textfont_size=13,
-                              marker_line_color="#0f1117", marker_line_width=2)
-        fig_pie.update_layout(**PLOTLY_LAYOUT,
-                              title_font_color="#e2e8f0", title_font_size=14)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        with g2:
+            fig_pie = px.pie(
+                df, values='cantidad', names='tipo',
+                color='tipo', color_discrete_map=CHART_COLORS,
+                hole=0.55
+            )
+            fig_pie.update_traces(textfont_color="#0f172a", textfont_size=13,
+                                  marker_line_color="#f1f5f9", marker_line_width=2)
+            fig_pie.update_layout(**PLOTLY_LAYOUT)
+            st.plotly_chart(fig_pie, use_container_width=True)
 
-    # ── Gráfico de tendencia semanal ──────────────────────────────────────────
-    if not df_trend.empty:
-        st.markdown("### 📈 Tendencia — últimos 7 días")
-        fig_line = px.line(
-            df_trend, x='fecha', y='cantidad', color='tipo',
-            color_discrete_map=CHART_COLORS,
-            markers=True,
-            labels={'fecha': 'Fecha', 'cantidad': 'Ingresos', 'tipo': ''}
+    # ── 3. Tendencia semanal (lunes a viernes) ───────────────────────────────
+    if lunes and viernes:
+        st.markdown("---")
+        st.markdown(
+            f"<p class='section-title'>📈 Tendencia semanal — {lunes.strftime('%d/%m')} al {viernes.strftime('%d/%m/%Y')}</p>",
+            unsafe_allow_html=True
         )
-        fig_line.update_traces(line_width=2.5, marker_size=7)
-        fig_line.update_xaxes(showgrid=False, tickfont_color="#94a3b8")
-        fig_line.update_yaxes(showgrid=True, gridcolor="#2e3350", tickfont_color="#94a3b8")
-        fig_line.update_layout(**PLOTLY_LAYOUT, title_font_color="#e2e8f0")
-        st.plotly_chart(fig_line, use_container_width=True)
+        if not df_trend.empty:
+            fig_line = px.line(
+                df_trend, x='fecha', y='cantidad', color='tipo',
+                color_discrete_map=CHART_COLORS,
+                markers=True,
+                labels={'fecha': 'Fecha', 'cantidad': 'Ingresos', 'tipo': ''}
+            )
+            fig_line.update_traces(line_width=2.5, marker_size=7)
+            fig_line.update_xaxes(showgrid=False, tickfont_color="#64748b")
+            fig_line.update_yaxes(showgrid=True, gridcolor="#e2e8f0", tickfont_color="#64748b")
+            fig_line.update_layout(**PLOTLY_LAYOUT)
+            st.plotly_chart(fig_line, use_container_width=True)
 
     # ── Pie de página ──────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
-        f"<p style='color:#94a3b8; font-size:11px; text-align:center;'>"
+        f"<p style='color:#64748b; font-size:11px; text-align:center;'>"
         f"Última actualización: {datetime.now().strftime('%H:%M:%S')} &nbsp;•&nbsp; "
         f"Sistema de Gestión Escolar</p>",
         unsafe_allow_html=True
