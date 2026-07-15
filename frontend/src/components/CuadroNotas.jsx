@@ -339,7 +339,7 @@ export default function CuadroNotas() {
                       </td>
                       <td className="px-4 py-4 text-center">
                         {est.promedio !== null ? (
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${badgeNota(est.promedio)}`}>
+                          <span className={`inline-block whitespace-nowrap px-3 py-1 rounded-full text-xs font-bold border ${badgeNota(est.promedio)}`}>
                             {est.promedio >= 11 ? '✔ Aprobado' : '✗ Desaprobado'}
                           </span>
                         ) : (
@@ -444,7 +444,7 @@ export default function CuadroNotas() {
                       ))}
                       <td className="px-3 py-3 text-center">
                         {n.promedio !== null ? (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${badgeNota(n.promedio)}`}>
+                          <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-bold border ${badgeNota(n.promedio)}`}>
                             {n.promedio}
                           </span>
                         ) : (
