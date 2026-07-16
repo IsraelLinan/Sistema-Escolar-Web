@@ -7,8 +7,6 @@ import AuxiliaresModule from '../components/AuxiliaresModule';
 import BarcodeGenerator from '../components/BarcodeGenerator';
 import WeeklyReports from '../components/WeeklyReports';
 import FotocheckGenerator from '../components/FotocheckGenerator';
-import FotocheckDocente from '../components/FotocheckDocente';
-import FotocheckAuxiliar from '../components/FotocheckAuxiliar';
 import CarnetsModule from '../components/CarnetsModule';
 import ApoderadosManager from '../components/ApoderadosManager';
 import AgendaEscolar from '../components/AgendaEscolar';
@@ -38,8 +36,6 @@ export default function Dashboard() {
       case 'auxiliares':            return <AuxiliaresModule />;
       case 'codigos':               return <BarcodeGenerator />;
       case 'fotocheck':             return <FotocheckGenerator />;
-      case 'fotocheck_docente':     return <FotocheckDocente />;
-      case 'fotocheck_auxiliar':    return <FotocheckAuxiliar />;
       case 'carnets':               return <CarnetsModule />;
       case 'apoderados':            return <ApoderadosManager />;
       case 'agenda':                return <AgendaEscolar />;
@@ -98,9 +94,7 @@ export default function Dashboard() {
           <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Gestión General</p>
           <NavButton id="auxiliares" icon="🗂️"  label="Registro Administrativo"   color="#8b5cf6" />
           <NavButton id="codigos"    icon="🏷️" label="Generar Código de Barra"   color="#a855f7" />
-          <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck Escolar" color="#06b6d4" />
-          <NavButton id="fotocheck_docente" icon="🪪" label="Generar Fotocheck Docente" color="#22c55e" />
-          <NavButton id="fotocheck_auxiliar" icon="🪪" label="Generar Fotocheck Auxiliar" color="#ef4444" />
+          <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck"        color="#06b6d4" />
           <NavButton id="carnets"    icon="🖼️" label="Carnets"                   color="#3b82f6" />
           <NavButton id="apoderados" icon="👨‍👩‍👧" label="Gestión de Apoderados"    color="#f43f5e" />
 

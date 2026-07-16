@@ -2,10 +2,36 @@ import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import axios from 'axios';
-import useImageUpload from '../hooks/useImageUpload';
 import { API_URL } from '../config';
+import useImageUpload from '../hooks/useImageUpload';
+
+const TIPOS = [
+  {
+    valor: 'Estudiante', label: '🎓 Estudiante', colorHeader: 'linear-gradient(135deg, #1a6b8a 0%, #1e3a6e 50%, #1a3a5c 100%)',
+    colorFranja: 'linear-gradient(90deg, #22c55e, #16a34a)', colorBoton: '#06b6d4', colorBotonHover: '#0891b2',
+    etiqueta: 'Carné de Estudiante', fotoFondo: '#dbeafe'
+  },
+  {
+    valor: 'Docente', label: '👨‍🏫 Docente', colorHeader: 'linear-gradient(135deg, #15803d 0%, #166534 50%, #14532d 100%)',
+    colorFranja: 'linear-gradient(90deg, #4f8ef7, #2563eb)', colorBoton: '#22c55e', colorBotonHover: '#16a34a',
+    etiqueta: 'Carné de Docente', fotoFondo: '#dcfce7'
+  },
+  {
+    valor: 'Auxiliar', label: '👷 Auxiliar', colorHeader: 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)',
+    colorFranja: 'linear-gradient(90deg, #4f8ef7, #2563eb)', colorBoton: '#ef4444', colorBotonHover: '#dc2626',
+    etiqueta: 'Carné de Auxiliar', fotoFondo: '#fee2e2'
+  },
+];
+
+const GRADOS = [
+  { grupo: 'Primaria', opciones: ['1ro Primaria', '2do Primaria', '3ro Primaria', '4to Primaria', '5to Primaria', '6to Primaria'] },
+  { grupo: 'Secundaria', opciones: ['1ro Secundaria', '2do Secundaria', '3ro Secundaria', '4to Secundaria', '5to Secundaria'] },
+];
+
+const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 export default function FotocheckGenerator() {
+  const [tipo, setTipo] = useState('Estudiante');
   const { imagen: foto, handleImagen: handleFoto } = useImageUpload(null);
   const { imagen: logoEscuela, handleImagen: handleLogo } = useImageUpload(null);
   const [nombre, setNombre] = useState('');
@@ -21,21 +47,35 @@ export default function FotocheckGenerator() {
   const [exitoGuardar, setExitoGuardar] = useState('');
   const fotocheckRef = useRef(null);
 
+  const config = TIPOS.find(t => t.valor === tipo);
+  const esEstudiante = tipo === 'Estudiante';
+
+  const cambiarTipo = (nuevoTipo) => {
+    setTipo(nuevoTipo);
+    setNombre('');
+    setGrado('');
+    setSeccion('');
+    setCodigoBarras('');
+    setImagenCodigo(null);
+    setError('');
+    setExitoGuardar('');
+  };
+
   const buscarCodigo = async () => {
     if (!nombre.trim()) {
-      setError('Ingrese el nombre del estudiante primero.');
+      setError(`Ingrese el nombre del ${tipo.toLowerCase()} primero.`);
       return;
     }
     setLoadingCodigo(true);
     setError('');
     try {
       const res = await axios.get(
-        `${API_URL}/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}`
+        `${API_URL}/codigos/buscar?nombre=${encodeURIComponent(nombre.trim())}&tipo=${tipo}`
       );
       setImagenCodigo(res.data.imagen);
       setCodigoBarras(res.data.codigo);
     } catch (e) {
-      setError('No se encontró código para este estudiante. Genéralo primero en el módulo de códigos.');
+      setError(`No se encontró código para este ${tipo.toLowerCase()}. Genéralo primero en el módulo de códigos.`);
     } finally {
       setLoadingCodigo(false);
     }
@@ -53,7 +93,7 @@ export default function FotocheckGenerator() {
         orientation: 'landscape', unit: 'mm', format: [85.6, 54],
       });
       pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 54);
-      pdf.save(`fotocheck_${nombre || 'estudiante'}.pdf`);
+      pdf.save(`fotocheck_${tipo.toLowerCase()}_${nombre || 'persona'}.pdf`);
     } catch (e) {
       setError('Error al exportar el PDF.');
     } finally {
@@ -63,7 +103,11 @@ export default function FotocheckGenerator() {
 
   const guardarFotocheck = async () => {
     if (!nombre.trim()) {
-      setError('Ingrese el nombre del estudiante.');
+      setError(`Ingrese el nombre del ${tipo.toLowerCase()}.`);
+      return;
+    }
+    if (!codigoBarras) {
+      setError('Primero debes buscar el código de barras.');
       return;
     }
     setLoadingGuardar(true);
@@ -78,12 +122,12 @@ export default function FotocheckGenerator() {
         nombre_escuela: '',
         logo_escuela: logoEscuela || '',
         nombre,
-        grado: grado + (seccion ? ` - ${seccion}` : ''),
+        grado: esEstudiante ? (grado + (seccion ? ` - ${seccion}` : '')) : '',
         anio,
         foto: foto || '',
         codigo_barras: codigoBarras || '',
         imagen_carnet: imagenCarnet,
-        tipo: 'Estudiante'
+        tipo
       });
       setExitoGuardar('✔ Carnet guardado. Puedes verlo en el módulo Carnets.');
       setTimeout(() => setExitoGuardar(''), 4000);
@@ -101,9 +145,28 @@ export default function FotocheckGenerator() {
         <div className="flex items-center gap-4">
           <span className="text-5xl">🪪</span>
           <div>
-            <h2 className="text-theme text-xl font-bold">Generar Fotocheck Escolar</h2>
-            <p className="text-muted text-sm">Diseña e imprime el carné del estudiante</p>
+            <h2 className="text-theme text-xl font-bold">Generar Fotocheck</h2>
+            <p className="text-muted text-sm">Diseña e imprime el carné del personal escolar</p>
           </div>
+        </div>
+      </div>
+
+      {/* Selector de tipo */}
+      <div className="bg-theme2 border border-theme rounded-2xl p-4 mb-4">
+        <p className="text-muted text-xs font-bold uppercase mb-3">Tipo de Carné</p>
+        <div className="flex bg-theme3 border border-theme rounded-xl p-1 flex-wrap">
+          {TIPOS.map(t => (
+            <button
+              key={t.valor}
+              onClick={() => cambiarTipo(t.valor)}
+              style={tipo === t.valor ? { backgroundColor: t.colorBoton } : {}}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                tipo === t.valor ? 'text-white' : 'text-muted hover:text-theme'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -116,81 +179,85 @@ export default function FotocheckGenerator() {
           {/* Logo escuela */}
           <div>
             <label className="block text-muted text-xs font-bold uppercase mb-1">Logo de la Escuela</label>
-            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label
+              style={{ borderColor: undefined }}
+              className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:opacity-80 text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition"
+            >
               <span>🏫</span>
               <span>{logoEscuela ? 'Logo cargado ✔' : 'Haz clic para subir el logo'}</span>
               <input type="file" accept="image/*" onChange={handleLogo} className="hidden" />
             </label>
           </div>
 
-          {/* Nombre estudiante */}
+          {/* Nombre */}
           <div>
-            <label className="block text-muted text-xs font-bold uppercase mb-1">Nombre del Estudiante</label>
+            <label className="block text-muted text-xs font-bold uppercase mb-1">
+              Nombre del {tipo === 'Estudiante' ? 'Estudiante' : tipo === 'Docente' ? 'Docente' : 'Auxiliar'}
+            </label>
             <input
               type="text"
               value={nombre}
               onChange={e => setNombre(e.target.value)}
-              placeholder="Ej: García López Juan Carlos"
-              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+              placeholder="Ej: García López, Juan Carlos"
+              className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
             />
           </div>
 
-          {/* Grado, Sección y Año */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-muted text-xs font-bold uppercase mb-1">Grado</label>
-              <select
-                value={grado}
-                onChange={e => setGrado(e.target.value)}
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              >
-                <option value="">Seleccionar</option>
-                <optgroup label="Primaria">
-                  <option value="1ro Primaria">1ro Primaria</option>
-                  <option value="2do Primaria">2do Primaria</option>
-                  <option value="3ro Primaria">3ro Primaria</option>
-                  <option value="4to Primaria">4to Primaria</option>
-                  <option value="5to Primaria">5to Primaria</option>
-                  <option value="6to Primaria">6to Primaria</option>
-                </optgroup>
-                <optgroup label="Secundaria">
-                  <option value="1ro Secundaria">1ro Secundaria</option>
-                  <option value="2do Secundaria">2do Secundaria</option>
-                  <option value="3ro Secundaria">3ro Secundaria</option>
-                  <option value="4to Secundaria">4to Secundaria</option>
-                  <option value="5to Secundaria">5to Secundaria</option>
-                </optgroup>
-              </select>
+          {/* Grado, Sección y Año (solo Estudiante) o solo Año (Docente/Auxiliar) */}
+          {esEstudiante ? (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Grado</label>
+                <select
+                  value={grado}
+                  onChange={e => setGrado(e.target.value)}
+                  className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
+                >
+                  <option value="">Seleccionar</option>
+                  {GRADOS.map(g => (
+                    <optgroup key={g.grupo} label={g.grupo}>
+                      {g.opciones.map(o => <option key={o} value={o}>{o}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Sección</label>
+                <select
+                  value={seccion}
+                  onChange={e => setSeccion(e.target.value)}
+                  className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
+                >
+                  <option value="">Seleccionar</option>
+                  {SECCIONES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
+                <input
+                  type="text" value={anio}
+                  onChange={e => setAnio(e.target.value)}
+                  placeholder="2026"
+                  className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-muted text-xs font-bold uppercase mb-1">Sección</label>
-              <select
-                value={seccion}
-                onChange={e => setSeccion(e.target.value)}
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
-              >
-                <option value="">Seleccionar</option>
-                {['A','B','C','D','E','F','G','H'].map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+          ) : (
             <div>
               <label className="block text-muted text-xs font-bold uppercase mb-1">Año</label>
               <input
-                type="text"
-                value={anio}
+                type="text" value={anio}
                 onChange={e => setAnio(e.target.value)}
                 placeholder="2026"
-                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#06b6d4]"
+                className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none"
               />
             </div>
-          </div>
+          )}
 
           {/* Foto */}
           <div>
             <label className="block text-muted text-xs font-bold uppercase mb-1">Fotografía</label>
-            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:border-[#06b6d4] text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
+            <label className="w-full flex items-center gap-3 bg-theme3 border border-dashed border-theme hover:opacity-80 text-muted rounded-xl px-4 py-3 text-sm cursor-pointer transition">
               <span>📷</span>
               <span>{foto ? 'Foto cargada ✔' : 'Haz clic para subir una foto'}</span>
               <input type="file" accept="image/*" onChange={handleFoto} className="hidden" />
@@ -205,7 +272,7 @@ export default function FotocheckGenerator() {
               disabled={loadingCodigo}
               className="w-full bg-theme3 hover:bg-theme border border-theme text-theme font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
             >
-              {loadingCodigo ? 'Buscando...' : '🔍 Buscar código del estudiante'}
+              {loadingCodigo ? 'Buscando...' : `🔍 Buscar código del ${tipo.toLowerCase()}`}
             </button>
             {imagenCodigo && (
               <p className="text-[#22c55e] text-xs mt-1">✔ Código encontrado y cargado</p>
@@ -231,14 +298,17 @@ export default function FotocheckGenerator() {
             <button
               onClick={exportarPDF}
               disabled={loadingPDF}
-              className="flex-1 bg-[#06b6d4] hover:bg-[#0891b2] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              style={{ backgroundColor: config.colorBoton }}
+              className="flex-1 text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50 hover:opacity-90"
             >
               {loadingPDF ? 'Generando...' : '📄 Exportar PDF'}
             </button>
             <button
               onClick={guardarFotocheck}
-              disabled={loadingGuardar}
-              className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              disabled={loadingGuardar || !codigoBarras}
+              style={{ backgroundColor: config.colorBotonHover }}
+              className="flex-1 text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50 hover:opacity-90"
+              title={!codigoBarras ? 'Primero busca el código de barras' : ''}
             >
               {loadingGuardar ? 'Guardando...' : '💾 Guardar Carnet'}
             </button>
@@ -254,11 +324,8 @@ export default function FotocheckGenerator() {
             style={{ width: '342px', height: '216px', fontFamily: 'Arial, sans-serif' }}
             className="relative rounded-xl overflow-hidden shadow-2xl"
           >
-            {/* Header azul */}
-            <div style={{
-              background: 'linear-gradient(135deg, #1a6b8a 0%, #1e3a6e 50%, #1a3a5c 100%)',
-              height: '50%', position: 'relative',
-            }}>
+            {/* Header */}
+            <div style={{ background: config.colorHeader, height: '50%', position: 'relative' }}>
               <div style={{
                 position: 'absolute', inset: 0, opacity: 0.15,
                 backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
@@ -284,7 +351,7 @@ export default function FotocheckGenerator() {
                 color: 'white', fontWeight: 'bold', fontSize: '16px',
                 textShadow: '0 1px 3px rgba(0,0,0,0.4)'
               }}>
-                Carné de Estudiante
+                {config.etiqueta}
               </div>
             </div>
 
@@ -292,17 +359,21 @@ export default function FotocheckGenerator() {
             <div style={{ background: 'white', height: '50%', position: 'relative' }}>
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                height: '8px', background: 'linear-gradient(90deg, #22c55e, #16a34a)'
+                height: '8px', background: config.colorFranja
               }} />
               <div style={{
                 position: 'absolute', left: '140px', top: '8px',
                 fontSize: '10px', color: '#333', lineHeight: '1.8'
               }}>
                 <div><span style={{ color: '#666' }}>Nombre  :</span> <strong>{nombre || ''}</strong></div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
-                  {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
-                </div>
+                {esEstudiante ? (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
+                    {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
+                  </div>
+                ) : (
+                  <div><span style={{ color: '#666' }}>Cargo   :</span> <strong>{tipo}</strong></div>
+                )}
                 <div><span style={{ color: '#666' }}>Año      :</span> <strong>{anio || ''}</strong></div>
               </div>
             </div>
@@ -320,7 +391,7 @@ export default function FotocheckGenerator() {
                 <div style={{
                   width: '100%', height: '100%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '32px', background: '#dbeafe'
+                  fontSize: '32px', background: config.fotoFondo
                 }}>👤</div>
               )}
             </div>
