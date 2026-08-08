@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 
 router = APIRouter(prefix="/notas", tags=["Cuadro de Notas"])
 
@@ -21,11 +21,11 @@ class MateriaCreate(BaseModel):
 
 
 @router.get("/materias")
-def lista_materias(usuario: str = Depends(verificar_token)):
+def lista_materias(usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre, grado FROM materias ORDER BY nombre")
+        cur.execute("SELECT id, nombre, grado FROM materias WHERE colegio_id = %s ORDER BY nombre", (colegio_id,))
         rows = cur.fetchall()
         cur.close()
         return {"materias": [{"id": r[0], "nombre": r[1], "grado": r[2]} for r in rows]}
@@ -36,12 +36,12 @@ def lista_materias(usuario: str = Depends(verificar_token)):
 
 
 @router.post("/materias/crear")
-def crear_materia(data: MateriaCreate, usuario: str = Depends(verificar_token)):
+def crear_materia(data: MateriaCreate, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("INSERT INTO materias (nombre, grado) VALUES (%s, %s) RETURNING id",
-                    (data.nombre, data.grado))
+        cur.execute("INSERT INTO materias (nombre, grado, colegio_id) VALUES (%s, %s, %s) RETURNING id",
+                    (data.nombre, data.grado, colegio_id))
         mid = cur.fetchone()[0]
         conn.commit()
         cur.close()
@@ -70,16 +70,16 @@ def eliminar_materia(materia_id: int, usuario: str = Depends(verificar_token)):
 
 
 @router.get("/cuadro")
-def cuadro_notas(anio: str = "2026", materia_id: int = None, grado: str = None, seccion: str = None, usuario: str = Depends(verificar_token)):
+def cuadro_notas(anio: str = "2026", materia_id: int = None, grado: str = None, seccion: str = None, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
 
         cur.execute("""
             SELECT DISTINCT grado, seccion FROM estudiantes
-            WHERE grado IS NOT NULL
+            WHERE grado IS NOT NULL AND colegio_id = %s
             ORDER BY grado, seccion
-        """)
+        """, (colegio_id,))
         grados_rows = cur.fetchall()
 
         query = """
@@ -93,9 +93,9 @@ def cuadro_notas(anio: str = "2026", materia_id: int = None, grado: str = None, 
             LEFT JOIN notas n ON n.estudiante_id = e.id
                 AND n.anio = %s
                 AND (%s::integer IS NULL OR n.materia_id = %s)
-            WHERE 1=1
+            WHERE e.colegio_id = %s
         """
-        params = [anio, materia_id, materia_id]
+        params = [anio, materia_id, materia_id, colegio_id]
 
         if grado:
             query += " AND e.grado = %s"
@@ -154,7 +154,7 @@ def guardar_nota(data: NotaCreate, usuario: str = Depends(verificar_token)):
 
 
 @router.get("/estudiante/{estudiante_id}")
-def notas_estudiante(estudiante_id: int, anio: str = "2026", usuario: str = Depends(verificar_token)):
+def notas_estudiante(estudiante_id: int, anio: str = "2026", usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -168,9 +168,10 @@ def notas_estudiante(estudiante_id: int, anio: str = "2026", usuario: str = Depe
             FROM materias m
             LEFT JOIN notas n ON n.materia_id = m.id
                 AND n.estudiante_id = %s AND n.anio = %s
+            WHERE m.colegio_id = %s
             GROUP BY m.id, m.nombre, m.grado
             ORDER BY m.nombre
-        """, (estudiante_id, anio))
+        """, (estudiante_id, anio, colegio_id))
         rows = cur.fetchall()
         cur.close()
         return {
