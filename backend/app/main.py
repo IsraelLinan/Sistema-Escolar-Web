@@ -12,6 +12,7 @@ from app.routers import (
     reportes,
     agenda,
     notas,
+    colegios,
 )
 
 app = FastAPI(title="Sistema Escolar API")
@@ -34,6 +35,7 @@ app.include_router(fotochecks.router)
 app.include_router(reportes.router)
 app.include_router(agenda.router)
 app.include_router(notas.router)
+app.include_router(colegios.router)
 
 
 @app.get("/")

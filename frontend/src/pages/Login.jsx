@@ -22,6 +22,18 @@ export default function Login() {
       const res = await axios.post(`${API_URL}/auth/login`, { username, password });
       localStorage.setItem('authenticated', 'true');
       localStorage.setItem('token', res.data.token);
+
+      // Traer datos del colegio para mostrarlos en el sidebar
+      try {
+        const colegioRes = await axios.get(`${API_URL}/auth/mi-colegio`, {
+          headers: { Authorization: `Bearer ${res.data.token}` }
+        });
+        localStorage.setItem('colegio_nombre', colegioRes.data.nombre);
+        localStorage.setItem('colegio_logo', colegioRes.data.logo || '');
+      } catch (e) {
+        // Si falla, el sidebar usará los valores por defecto
+      }
+
       window.location.href = '/dashboard';
     } catch (e) {
       setError(e.response?.data?.detail || 'Error de conexión.');

@@ -20,10 +20,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const [showCambiarPassword, setShowCambiarPassword] = useState(false);
+  const [colegioNombre] = useState(localStorage.getItem('colegio_nombre') || 'Sistema de Gestión Escolar');
+  const [colegioLogo] = useState(localStorage.getItem('colegio_logo') || '');
 
   const handleLogout = () => {
     localStorage.removeItem('authenticated');
     localStorage.removeItem('token');
+    localStorage.removeItem('colegio_nombre');
+    localStorage.removeItem('colegio_logo');
     navigate('/');
   };
 
@@ -69,8 +73,16 @@ export default function Dashboard() {
 
         {/* Logo */}
         <div className="p-6 text-center border-b border-theme">
-          <div className="text-5xl mb-2">🏫</div>
-          <h1 className="text-theme font-bold text-base">Sistema de Gestión Escolar</h1>
+          {colegioLogo ? (
+            <img
+              src={colegioLogo}
+              alt="Logo del colegio"
+              className="w-16 h-16 object-contain mx-auto mb-2 rounded-xl"
+            />
+          ) : (
+            <div className="text-5xl mb-2">🏫</div>
+          )}
+          <h1 className="text-theme font-bold text-base">{colegioNombre}</h1>
           <p className="text-muted text-xs mt-1">v2.0</p>
           <div className="flex items-center justify-center gap-2 mt-3">
             <span className="text-muted text-xs">{isDark ? '🌙 Oscuro' : '☀️ Claro'}</span>

@@ -10,9 +10,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 EXPIRE_HOURS = 12
 
-def crear_token(username: str, colegio_id: int) -> str:
+def crear_token(username: str, colegio_id: int, rol: str = "admin") -> str:
     expira = datetime.utcnow() + timedelta(hours=EXPIRE_HOURS)
-    payload = {"sub": username, "colegio_id": colegio_id, "exp": expira}
+    payload = {"sub": username, "colegio_id": colegio_id, "rol": rol, "exp": expira}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def verificar_token(authorization: str = Header(None)):
@@ -38,5 +38,18 @@ def obtener_colegio_id(authorization: str = Header(None)) -> int:
         if colegio_id is None:
             raise HTTPException(status_code=401, detail="Token sin colegio asociado, vuelve a iniciar sesión")
         return colegio_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+def requiere_super_admin(authorization: str = Header(None)) -> str:
+    """Verifica que el usuario autenticado tenga rol super_admin."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autenticado")
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("rol") != "super_admin":
+            raise HTTPException(status_code=403, detail="No tienes permisos de Super Admin")
+        return payload.get("sub")
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")

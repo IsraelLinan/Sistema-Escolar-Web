@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import bcrypt
 from app.database import get_conn, put_conn
-from app.auth import crear_token, verificar_token
+from app.auth import crear_token, verificar_token, obtener_colegio_id
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -23,7 +23,7 @@ def login(data: LoginRequest):
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT password, colegio_id FROM usuarios WHERE username = %s",
+            "SELECT password, colegio_id, rol FROM usuarios WHERE username = %s",
             (data.username,)
         )
         user = cur.fetchone()
@@ -32,15 +32,17 @@ def login(data: LoginRequest):
         if not user:
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 
-        password_hash, colegio_id = user
+        password_hash, colegio_id, rol = user
         if not bcrypt.checkpw(data.password.encode(), password_hash.encode()):
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 
-        if colegio_id is None:
+        rol = rol or "admin"
+
+        if colegio_id is None and rol != "super_admin":
             raise HTTPException(status_code=403, detail="Tu usuario no tiene un colegio asignado. Contacta al administrador.")
 
-        token = crear_token(data.username, colegio_id)
-        return {"success": True, "message": "Login exitoso", "token": token}
+        token = crear_token(data.username, colegio_id, rol)
+        return {"success": True, "message": "Login exitoso", "token": token, "rol": rol}
     except HTTPException:
         raise
     except Exception as e:
@@ -72,6 +74,24 @@ def cambiar_password(data: CambiarPasswordRequest, usuario: str = Depends(verifi
         raise
     except Exception as e:
         conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+        
+@router.get("/mi-colegio")
+def mi_colegio(usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, nombre, logo FROM colegios WHERE id = %s", (colegio_id,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            raise HTTPException(status_code=404, detail="Colegio no encontrado")
+        return {"id": row[0], "nombre": row[1], "logo": row[2] or ""}
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         put_conn(conn)
