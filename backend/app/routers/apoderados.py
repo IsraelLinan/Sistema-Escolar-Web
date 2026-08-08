@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 from app.telegram_bot import enviar_notificacion
 import asyncio
 
@@ -15,7 +15,7 @@ class ApoderadoUpdate(BaseModel):
 
 
 @router.get("/lista")
-def lista_estudiantes_apoderados(usuario: str = Depends(verificar_token)):
+def lista_estudiantes_apoderados(usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -24,8 +24,9 @@ def lista_estudiantes_apoderados(usuario: str = Depends(verificar_token)):
                    COALESCE(apoderado_nombre, '') as apoderado_nombre,
                    COALESCE(apoderado_chat_id, '') as apoderado_chat_id
             FROM estudiantes
+            WHERE colegio_id = %s
             ORDER BY nombre
-        """)
+        """, (colegio_id,))
         rows = cur.fetchall()
         cur.close()
         return {
