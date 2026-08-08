@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 
 router = APIRouter(prefix="/agenda", tags=["Agenda Escolar"])
 
@@ -24,7 +24,7 @@ class EventoUpdate(EventoCreate):
 
 
 @router.get("/eventos")
-def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(verificar_token)):
+def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -35,15 +35,17 @@ def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(veri
                 FROM eventos_agenda
                 WHERE EXTRACT(MONTH FROM fecha_inicio) = %s
                   AND EXTRACT(YEAR FROM fecha_inicio) = %s
+                  AND colegio_id = %s
                 ORDER BY fecha_inicio, hora_inicio
-            """, (mes, anio))
+            """, (mes, anio, colegio_id))
         else:
             cur.execute("""
                 SELECT id, titulo, descripcion, fecha_inicio, fecha_fin,
                        hora_inicio, hora_fin, tipo, color, todo_el_dia, imagen
                 FROM eventos_agenda
+                WHERE colegio_id = %s
                 ORDER BY fecha_inicio DESC
-            """)
+            """, (colegio_id,))
         rows = cur.fetchall()
         cur.close()
         return {
@@ -66,20 +68,20 @@ def lista_eventos(mes: int = None, anio: int = None, usuario: str = Depends(veri
 
 
 @router.post("/crear")
-def crear_evento(data: EventoCreate, usuario: str = Depends(verificar_token)):
+def crear_evento(data: EventoCreate, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO eventos_agenda (titulo, descripcion, fecha_inicio, fecha_fin,
-                hora_inicio, hora_fin, tipo, color, todo_el_dia, imagen)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                hora_inicio, hora_fin, tipo, color, todo_el_dia, imagen, colegio_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             data.titulo, data.descripcion, data.fecha_inicio,
             data.fecha_fin or None, data.hora_inicio or None,
             data.hora_fin or None, data.tipo, data.color, data.todo_el_dia,
-            data.imagen or None
+            data.imagen or None, colegio_id
         ))
         eid = cur.fetchone()[0]
         conn.commit()
