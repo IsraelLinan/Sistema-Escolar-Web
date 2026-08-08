@@ -9,7 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
@@ -18,28 +18,28 @@ _QUERY_ASISTENCIA = """
     SELECT e.nombre, ie.hora_ingreso, ie.hora_salida, 'Estudiante' as tipo
     FROM ingresos_estudiantes ie
     JOIN estudiantes e ON e.id = ie.estudiante_id
-    WHERE DATE(ie.hora_ingreso) = %s
+    WHERE DATE(ie.hora_ingreso) = %s AND e.colegio_id = %s
 
     UNION ALL
 
     SELECT d.nombre, id2.hora_ingreso, id2.hora_salida, 'Docente' as tipo
     FROM ingresos_docentes id2
     JOIN docentes d ON d.id = id2.docente_id
-    WHERE DATE(id2.hora_ingreso) = %s
+    WHERE DATE(id2.hora_ingreso) = %s AND d.colegio_id = %s
 
     UNION ALL
 
     SELECT ac.nombre, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
     FROM ingresos_auxiliares ia
     JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
-    WHERE DATE(ia.hora_ingreso) = %s
+    WHERE DATE(ia.hora_ingreso) = %s AND ac.colegio_id = %s
 
     ORDER BY hora_ingreso
 """
 
 
-def _obtener_registros(cur, fecha_filtro):
-    cur.execute(_QUERY_ASISTENCIA, (fecha_filtro, fecha_filtro, fecha_filtro))
+def _obtener_registros(cur, fecha_filtro, colegio_id):
+    cur.execute(_QUERY_ASISTENCIA, (fecha_filtro, colegio_id, fecha_filtro, colegio_id, fecha_filtro, colegio_id))
     rows = cur.fetchall()
     return [
         {
@@ -53,13 +53,13 @@ def _obtener_registros(cur, fecha_filtro):
 
 
 @router.get("/asistencia")
-def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por_pagina: int = 20, usuario: str = Depends(verificar_token)):
+def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por_pagina: int = 20, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         fecha_filtro = fecha if fecha else date.today().isoformat()
 
-        registros = _obtener_registros(cur, fecha_filtro)
+        registros = _obtener_registros(cur, fecha_filtro, colegio_id)
         cur.close()
 
         if tipo and tipo != 'Todos':
@@ -85,12 +85,12 @@ def reporte_asistencia(fecha: str = None, tipo: str = None, pagina: int = 1, por
 
 
 @router.get("/exportar-excel")
-def exportar_excel(fecha: str = None, usuario: str = Depends(verificar_token)):
+def exportar_excel(fecha: str = None, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         fecha_filtro = fecha if fecha else date.today().isoformat()
-        registros = _obtener_registros(cur, fecha_filtro)
+        registros = _obtener_registros(cur, fecha_filtro, colegio_id)
         cur.close()
 
         wb = openpyxl.Workbook()
@@ -145,12 +145,12 @@ def exportar_excel(fecha: str = None, usuario: str = Depends(verificar_token)):
 
 
 @router.get("/exportar-pdf")
-def exportar_pdf(fecha: str = None, usuario: str = Depends(verificar_token)):
+def exportar_pdf(fecha: str = None, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         fecha_filtro = fecha if fecha else date.today().isoformat()
-        registros = _obtener_registros(cur, fecha_filtro)
+        registros = _obtener_registros(cur, fecha_filtro, colegio_id)
         cur.close()
 
         buffer = io.BytesIO()
