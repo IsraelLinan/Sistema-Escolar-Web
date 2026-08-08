@@ -23,7 +23,7 @@ def login(data: LoginRequest):
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT password FROM usuarios WHERE username = %s",
+            "SELECT password, colegio_id FROM usuarios WHERE username = %s",
             (data.username,)
         )
         user = cur.fetchone()
@@ -32,11 +32,14 @@ def login(data: LoginRequest):
         if not user:
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 
-        password_hash = user[0]
+        password_hash, colegio_id = user
         if not bcrypt.checkpw(data.password.encode(), password_hash.encode()):
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 
-        token = crear_token(data.username)
+        if colegio_id is None:
+            raise HTTPException(status_code=403, detail="Tu usuario no tiene un colegio asignado. Contacta al administrador.")
+
+        token = crear_token(data.username, colegio_id)
         return {"success": True, "message": "Login exitoso", "token": token}
     except HTTPException:
         raise
