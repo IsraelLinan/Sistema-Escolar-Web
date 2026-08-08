@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 
 router = APIRouter(prefix="/fotochecks", tags=["Fotochecks / Carnets"])
 
@@ -19,7 +19,7 @@ class FotocheckSave(BaseModel):
 
 
 @router.post("/guardar")
-def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_token)):
+def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -28,8 +28,8 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
         docente_id = None
 
         if data.tipo == "Estudiante":
-            cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s LIMIT 1",
-                        (f"%{data.nombre.lower()}%",))
+            cur.execute("SELECT id FROM estudiantes WHERE LOWER(nombre) LIKE %s AND colegio_id = %s LIMIT 1",
+                        (f"%{data.nombre.lower()}%", colegio_id))
             est = cur.fetchone()
             estudiante_id = est[0] if est else None
 
@@ -46,8 +46,8 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
                 """, (grado_val, seccion_val, estudiante_id))
 
         elif data.tipo == "Docente":
-            cur.execute("SELECT id FROM docentes WHERE LOWER(nombre) LIKE %s LIMIT 1",
-                        (f"%{data.nombre.lower()}%",))
+            cur.execute("SELECT id FROM docentes WHERE LOWER(nombre) LIKE %s AND colegio_id = %s LIMIT 1",
+                        (f"%{data.nombre.lower()}%", colegio_id))
             doc = cur.fetchone()
             docente_id = doc[0] if doc else None
 
@@ -55,12 +55,12 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
 
         cur.execute("""
             INSERT INTO fotochecks (estudiante_id, docente_id, nombre_escuela, logo_escuela,
-                nombre, grado, anio, foto, codigo_barras, imagen_carnet, tipo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                nombre, grado, anio, foto, codigo_barras, imagen_carnet, tipo, colegio_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (estudiante_id, docente_id, data.nombre_escuela, data.logo_escuela,
               data.nombre, data.grado, data.anio, data.foto,
-              data.codigo_barras, data.imagen_carnet, data.tipo))
+              data.codigo_barras, data.imagen_carnet, data.tipo, colegio_id))
         fid = cur.fetchone()[0]
         conn.commit()
         cur.close()
@@ -73,7 +73,7 @@ def guardar_fotocheck(data: FotocheckSave, usuario: str = Depends(verificar_toke
 
 
 @router.get("/lista")
-def lista_fotochecks(busqueda: str = "", tipo: str = "Estudiante", pagina: int = 1, por_pagina: int = 12, usuario: str = Depends(verificar_token)):
+def lista_fotochecks(busqueda: str = "", tipo: str = "Estudiante", pagina: int = 1, por_pagina: int = 12, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -81,9 +81,9 @@ def lista_fotochecks(busqueda: str = "", tipo: str = "Estudiante", pagina: int =
             SELECT id, nombre_escuela, logo_escuela, nombre, grado,
                    anio, foto, codigo_barras, imagen_carnet, created_at, tipo
             FROM fotochecks
-            WHERE LOWER(nombre) LIKE %s AND tipo = %s
+            WHERE LOWER(nombre) LIKE %s AND tipo = %s AND colegio_id = %s
             ORDER BY created_at DESC
-        """, (f"%{busqueda.lower()}%", tipo))
+        """, (f"%{busqueda.lower()}%", tipo, colegio_id))
         rows = cur.fetchall()
         cur.close()
 
