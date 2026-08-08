@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 from app.utils import now_lima
 from app.telegram_bot import enviar_notificacion, construir_mensaje_ingreso, construir_mensaje_salida
 import asyncio
@@ -14,11 +14,11 @@ class IngresoRequest(BaseModel):
 
 
 @router.post("/ingreso")
-def ingreso_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token)):
+def ingreso_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s AND colegio_id = %s", (data.codigo_barras, colegio_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
@@ -52,11 +52,11 @@ def ingreso_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_to
 
 
 @router.post("/salida")
-def salida_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token)):
+def salida_estudiante(data: IngresoRequest, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre, apoderado_chat_id FROM estudiantes WHERE codigo_barras = %s AND colegio_id = %s", (data.codigo_barras, colegio_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")

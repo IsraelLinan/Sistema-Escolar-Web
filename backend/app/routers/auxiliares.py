@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
-from app.auth import verificar_token
+from app.auth import verificar_token, obtener_colegio_id
 from app.utils import now_lima
 from app.routers.estudiantes import IngresoRequest
 
@@ -33,7 +33,7 @@ class AuxiliarUpdate(AuxiliarCreate):
 # ── Registro Administrativo (CRUD) ──────────────────────────────────────────
 
 @router.get("/lista")
-def lista_auxiliares(busqueda: str = "", turno: str = "", cargo: str = "", usuario: str = Depends(verificar_token)):
+def lista_auxiliares(busqueda: str = "", turno: str = "", cargo: str = "", usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -42,10 +42,11 @@ def lista_auxiliares(busqueda: str = "", turno: str = "", cargo: str = "", usuar
                    genero, telefono, email, direccion, area_asignada,
                    turno, fecha_ingreso, foto, cargo, codigo_barras
             FROM auxiliares
-            WHERE (LOWER(nombres) LIKE %s OR LOWER(apellidos) LIKE %s
+            WHERE colegio_id = %s
+              AND (LOWER(nombres) LIKE %s OR LOWER(apellidos) LIKE %s
                    OR LOWER(codigo) LIKE %s OR dni LIKE %s)
         """
-        params = [f"%{busqueda.lower()}%"] * 4
+        params = [colegio_id] + [f"%{busqueda.lower()}%"] * 4
         if turno:
             query += " AND turno = %s"
             params.append(turno)
@@ -79,29 +80,29 @@ def lista_auxiliares(busqueda: str = "", turno: str = "", cargo: str = "", usuar
 
 
 @router.post("/crear")
-def crear_auxiliar(data: AuxiliarCreate, usuario: str = Depends(verificar_token)):
+def crear_auxiliar(data: AuxiliarCreate, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
         prefijo = {"Docente": "DOC", "Auxiliar": "AUX", "Personal Administrativo": "PA"}.get(data.cargo, "AUX")
-        cur.execute("SELECT COUNT(*) FROM auxiliares WHERE cargo = %s", (data.cargo,))
+        cur.execute("SELECT COUNT(*) FROM auxiliares WHERE cargo = %s AND colegio_id = %s", (data.cargo, colegio_id))
         count = cur.fetchone()[0]
         codigo = f"{prefijo}{str(count + 1).zfill(5)}"
 
         import hashlib
-        codigo_barras = hashlib.md5(f"{data.nombres} {data.apellidos} {codigo}".encode()).hexdigest()
+        codigo_barras = hashlib.md5(f"{data.nombres} {data.apellidos} {codigo} {colegio_id}".encode()).hexdigest()
 
         cur.execute("""
             INSERT INTO auxiliares (nombres, apellidos, codigo, cargo, dni, fecha_nacimiento,
-                genero, telefono, email, direccion, area_asignada, turno, fecha_ingreso, foto, codigo_barras)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                genero, telefono, email, direccion, area_asignada, turno, fecha_ingreso, foto, codigo_barras, colegio_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, codigo
         """, (
             data.nombres, data.apellidos, codigo, data.cargo,
             data.dni or None, data.fecha_nacimiento or None,
             data.genero, data.telefono, data.email, data.direccion,
             data.area_asignada, data.turno,
-            data.fecha_ingreso or None, data.foto, codigo_barras
+            data.fecha_ingreso or None, data.foto, codigo_barras, colegio_id
         ))
         result = cur.fetchone()
         conn.commit()
@@ -159,11 +160,11 @@ def eliminar_auxiliar(auxiliar_id: int, usuario: str = Depends(verificar_token))
 # ── Asistencia (por código de barras, tabla auxiliares_codigos) ────────────
 
 @router.post("/ingreso")
-def ingreso_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token)):
+def ingreso_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s AND colegio_id = %s", (data.codigo_barras, colegio_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
@@ -192,11 +193,11 @@ def ingreso_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_toke
 
 
 @router.post("/salida")
-def salida_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token)):
+def salida_auxiliar(data: IngresoRequest, usuario: str = Depends(verificar_token), colegio_id: int = Depends(obtener_colegio_id)):
     conn = get_conn()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s", (data.codigo_barras,))
+        cur.execute("SELECT id, nombre FROM auxiliares_codigos WHERE codigo_barras = %s AND colegio_id = %s", (data.codigo_barras, colegio_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Código no registrado en el sistema")
