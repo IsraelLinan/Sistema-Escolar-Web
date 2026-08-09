@@ -22,16 +22,19 @@ export default function Login() {
       const res = await axios.post(`${API_URL}/auth/login`, { username, password });
       localStorage.setItem('authenticated', 'true');
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('rol', res.data.rol || 'admin');
 
-      // Traer datos del colegio para mostrarlos en el sidebar
-      try {
-        const colegioRes = await axios.get(`${API_URL}/auth/mi-colegio`, {
-          headers: { Authorization: `Bearer ${res.data.token}` }
-        });
-        localStorage.setItem('colegio_nombre', colegioRes.data.nombre);
-        localStorage.setItem('colegio_logo', colegioRes.data.logo || '');
-      } catch (e) {
-        // Si falla, el sidebar usará los valores por defecto
+      // Traer datos del colegio (si aplica) para mostrarlos en el sidebar
+      if (res.data.rol !== 'super_admin') {
+        try {
+          const colegioRes = await axios.get(`${API_URL}/auth/mi-colegio`, {
+            headers: { Authorization: `Bearer ${res.data.token}` }
+          });
+          localStorage.setItem('colegio_nombre', colegioRes.data.nombre);
+          localStorage.setItem('colegio_logo', colegioRes.data.logo || '');
+        } catch (e) {
+          // Si falla, el sidebar usará los valores por defecto
+        }
       }
 
       window.location.href = '/dashboard';

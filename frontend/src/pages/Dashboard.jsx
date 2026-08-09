@@ -14,6 +14,7 @@ import CuadroNotas from '../components/CuadroNotas';
 import useTheme from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
 import CambiarPassword from '../components/CambiarPassword';
+import GestionColegios from '../components/GestionColegios';
 
 export default function Dashboard() {
   const [activeModule, setActiveModule] = useState(null);
@@ -22,12 +23,15 @@ export default function Dashboard() {
   const [showCambiarPassword, setShowCambiarPassword] = useState(false);
   const [colegioNombre] = useState(localStorage.getItem('colegio_nombre') || 'Sistema de Gestión Escolar');
   const [colegioLogo] = useState(localStorage.getItem('colegio_logo') || '');
+  const [rol] = useState(localStorage.getItem('rol') || 'admin');
+  const esSuperAdmin = rol === 'super_admin';
 
   const handleLogout = () => {
     localStorage.removeItem('authenticated');
     localStorage.removeItem('token');
     localStorage.removeItem('colegio_nombre');
     localStorage.removeItem('colegio_logo');
+    localStorage.removeItem('rol');
     navigate('/');
   };
 
@@ -44,6 +48,7 @@ export default function Dashboard() {
       case 'apoderados':            return <ApoderadosManager />;
       case 'agenda':                return <AgendaEscolar />;
       case 'notas':                 return <CuadroNotas />;
+      case 'colegios':              return <GestionColegios />;
       default:                      return null;
     }
   };
@@ -93,41 +98,50 @@ export default function Dashboard() {
         {/* Navegación */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
 
-          {/* Asistencia */}
-          <p className="text-muted text-xs font-bold uppercase mb-2 px-2 pt-2">Asistencia</p>
-          <NavButton id="estudiantes"           icon="🎓"  label="Asistencia de Estudiantes" color="#4f8ef7" />
-          <NavButton id="docentes"              icon="👨‍🏫" label="Asistencia de Docentes"    color="#22c55e" />
-          <NavButton id="asistencia_auxiliares" icon="👷"  label="Asistencia de Auxiliares"  color="#10b981" />
-          <NavButton id="reportes"              icon="📋"  label="Reporte de Asistencia"     color="#f59e0b" />
+          {esSuperAdmin ? (
+            <>
+              <p className="text-muted text-xs font-bold uppercase mb-2 px-2 pt-2">Administración</p>
+              <NavButton id="colegios" icon="🏫" label="Gestión de Colegios" color="#4f8ef7" />
+            </>
+          ) : (
+            <>
+              {/* Asistencia */}
+              <p className="text-muted text-xs font-bold uppercase mb-2 px-2 pt-2">Asistencia</p>
+              <NavButton id="estudiantes"           icon="🎓"  label="Asistencia de Estudiantes" color="#4f8ef7" />
+              <NavButton id="docentes"              icon="👨‍🏫" label="Asistencia de Docentes"    color="#22c55e" />
+              <NavButton id="asistencia_auxiliares" icon="👷"  label="Asistencia de Auxiliares"  color="#10b981" />
+              <NavButton id="reportes"              icon="📋"  label="Reporte de Asistencia"     color="#f59e0b" />
 
-          <div className="border-t border-theme my-3" />
+              <div className="border-t border-theme my-3" />
 
-          {/* Gestión General */}
-          <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Gestión General</p>
-          <NavButton id="auxiliares" icon="🗂️"  label="Registro Administrativo"   color="#8b5cf6" />
-          <NavButton id="codigos"    icon="🏷️" label="Generar Código de Barra"   color="#a855f7" />
-          <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck"        color="#06b6d4" />
-          <NavButton id="carnets"    icon="🖼️" label="Carnets"                   color="#3b82f6" />
-          <NavButton id="apoderados" icon="👨‍👩‍👧" label="Gestión de Apoderados"    color="#f43f5e" />
+              {/* Gestión General */}
+              <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Gestión General</p>
+              <NavButton id="auxiliares" icon="🗂️"  label="Registro Administrativo"   color="#8b5cf6" />
+              <NavButton id="codigos"    icon="🏷️" label="Generar Código de Barra"   color="#a855f7" />
+              <NavButton id="fotocheck"  icon="🪪"  label="Generar Fotocheck"          color="#06b6d4" />
+              <NavButton id="carnets"    icon="🖼️" label="Carnets"                   color="#3b82f6" />
+              <NavButton id="apoderados" icon="👨‍👩‍👧" label="Gestión de Apoderados"    color="#f43f5e" />
 
-          <div className="border-t border-theme my-3" />
+              <div className="border-t border-theme my-3" />
 
-          {/* Académico */}
-          <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Académico</p>
-          <NavButton id="agenda" icon="📅" label="Agenda Escolar"  color="#6366f1" />
-          <NavButton id="notas"  icon="📊" label="Cuadro de Notas" color="#ec4899" />
+              {/* Académico */}
+              <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Académico</p>
+              <NavButton id="agenda" icon="📅" label="Agenda Escolar"  color="#6366f1" />
+              <NavButton id="notas"  icon="📊" label="Cuadro de Notas" color="#ec4899" />
 
-          <div className="border-t border-theme my-3" />
+              <div className="border-t border-theme my-3" />
 
-          {/* Herramientas */}
-          <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Herramientas</p>
-          <button
-            onClick={() => window.open('http://localhost:8501', '_blank')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border border-transparent text-muted hover:bg-theme3 hover:text-theme transition"
-          >
-            <span className="text-xl">📊</span>
-            <span className="text-sm font-medium">Abrir Dashboard Web</span>
-          </button>
+              {/* Herramientas */}
+              <p className="text-muted text-xs font-bold uppercase mb-2 px-2">Herramientas</p>
+              <button
+                onClick={() => window.open('http://localhost:8501', '_blank')}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border border-transparent text-muted hover:bg-theme3 hover:text-theme transition"
+              >
+                <span className="text-xl">📊</span>
+                <span className="text-sm font-medium">Abrir Dashboard Web</span>
+              </button>
+            </>
+          )}
 
         </nav>
 
