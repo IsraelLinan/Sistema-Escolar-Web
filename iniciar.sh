@@ -36,7 +36,7 @@ echo -e "${GREEN}  ✔ Base de datos lista${NC}"
 # ── 3. Iniciar backend ────────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}▶ Iniciando backend FastAPI...${NC}"
-cd ~/Desktop/Sistema-Escolar-Web/backend
+cd /Users/israellinan/Sistema-Escolar-Web/backend
 source venv/bin/activate
 uvicorn app.main:app --port 8000 &
 BACKEND_PID=$!
@@ -46,7 +46,7 @@ echo -e "${GREEN}  ✔ Backend listo en http://localhost:8000${NC}"
 # ── 4. Iniciar frontend ───────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}▶ Iniciando frontend React...${NC}"
-cd ~/Desktop/Sistema-Escolar-Web/frontend
+cd /Users/israellinan/Sistema-Escolar-Web/frontend
 BROWSER=none npm start &
 FRONTEND_PID=$!
 sleep 10
@@ -55,9 +55,9 @@ echo -e "${GREEN}  ✔ Frontend listo en http://localhost:3000${NC}"
 # ── 5. Iniciar Dashboard Streamlit ───────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}▶ Iniciando Dashboard Streamlit...${NC}"
-cd ~/Desktop/Sistema-Escolar-Web
-source backend/venv/bin/activate
-streamlit run dashboard.py --server.port 8501 &
+cd /Users/israellinan/Sistema-Escolar-Web
+source /Users/israellinan/Sistema-Escolar-Web/backend/venv/bin/activate
+/Users/israellinan/Sistema-Escolar-Web/backend/venv/bin/streamlit run dashboard.py --server.port 8501 &
 STREAMLIT_PID=$!
 sleep 5
 echo -e "${GREEN}  ✔ Dashboard listo en http://localhost:8501${NC}"
