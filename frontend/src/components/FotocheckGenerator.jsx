@@ -32,6 +32,7 @@ const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 export default function FotocheckGenerator() {
   const [tipo, setTipo] = useState('Estudiante');
+  const [orientacion, setOrientacion] = useState('horizontal');
   const { imagen: foto, handleImagen: handleFoto } = useImageUpload(null);
   const { imagen: logoEscuela, handleImagen: handleLogo } = useImageUpload(null);
   const [nombre, setNombre] = useState('');
@@ -89,10 +90,13 @@ export default function FotocheckGenerator() {
         scale: 3, useCORS: true, backgroundColor: null,
       });
       const imgData = canvas.toDataURL('image/png');
+      const esVertical = orientacion === 'vertical';
       const pdf = new jsPDF({
-        orientation: 'landscape', unit: 'mm', format: [85.6, 54],
+        orientation: esVertical ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: esVertical ? [54, 85.6] : [85.6, 54],
       });
-      pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 54);
+      pdf.addImage(imgData, 'PNG', 0, 0, esVertical ? 54 : 85.6, esVertical ? 85.6 : 54);
       pdf.save(`fotocheck_${tipo.toLowerCase()}_${nombre || 'persona'}.pdf`);
     } catch (e) {
       setError('Error al exportar el PDF.');
@@ -151,22 +155,47 @@ export default function FotocheckGenerator() {
         </div>
       </div>
 
-      {/* Selector de tipo */}
-      <div className="bg-theme2 border border-theme rounded-2xl p-4 mb-4">
-        <p className="text-muted text-xs font-bold uppercase mb-3">Tipo de Carné</p>
-        <div className="flex bg-theme3 border border-theme rounded-xl p-1 flex-wrap">
-          {TIPOS.map(t => (
+      {/* Selector de tipo y orientación */}
+      <div className="bg-theme2 border border-theme rounded-2xl p-4 mb-4 flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <p className="text-muted text-xs font-bold uppercase mb-3">Tipo de Carné</p>
+          <div className="flex bg-theme3 border border-theme rounded-xl p-1 flex-wrap">
+            {TIPOS.map(t => (
+              <button
+                key={t.valor}
+                onClick={() => cambiarTipo(t.valor)}
+                style={tipo === t.valor ? { backgroundColor: t.colorBoton } : {}}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                  tipo === t.valor ? 'text-white' : 'text-muted hover:text-theme'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-muted text-xs font-bold uppercase mb-3">Formato</p>
+          <div className="flex bg-theme3 border border-theme rounded-xl p-1">
             <button
-              key={t.valor}
-              onClick={() => cambiarTipo(t.valor)}
-              style={tipo === t.valor ? { backgroundColor: t.colorBoton } : {}}
+              onClick={() => setOrientacion('horizontal')}
+              style={orientacion === 'horizontal' ? { backgroundColor: config.colorBoton } : {}}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
-                tipo === t.valor ? 'text-white' : 'text-muted hover:text-theme'
+                orientacion === 'horizontal' ? 'text-white' : 'text-muted hover:text-theme'
               }`}
             >
-              {t.label}
+              ▭ Horizontal
             </button>
-          ))}
+            <button
+              onClick={() => setOrientacion('vertical')}
+              style={orientacion === 'vertical' ? { backgroundColor: config.colorBoton } : {}}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                orientacion === 'vertical' ? 'text-white' : 'text-muted hover:text-theme'
+              }`}
+            >
+              ▯ Vertical
+            </button>
+          </div>
         </div>
       </div>
 
@@ -319,103 +348,213 @@ export default function FotocheckGenerator() {
         <div className="bg-theme2 border border-theme rounded-2xl p-6 flex flex-col items-center justify-center">
           <p className="text-muted text-xs font-bold uppercase mb-4">Vista Previa</p>
 
-          <div
-            ref={fotocheckRef}
-            style={{ width: '342px', height: '216px', fontFamily: 'Arial, sans-serif' }}
-            className="relative rounded-xl overflow-hidden shadow-2xl"
-          >
-            {/* Header */}
-            <div style={{ background: config.colorHeader, height: '50%', position: 'relative' }}>
+          {orientacion === 'horizontal' ? (
+            <div
+              ref={fotocheckRef}
+              style={{ width: '342px', height: '216px', fontFamily: 'Arial, sans-serif' }}
+              className="relative rounded-xl overflow-hidden shadow-2xl"
+            >
+              {/* Header */}
+              <div style={{ background: config.colorHeader, height: '50%', position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', inset: 0, opacity: 0.15,
+                  backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
+                  backgroundSize: '12px 12px'
+                }} />
+                {/* Logo */}
+                <div style={{
+                  position: 'absolute', top: '8px', right: '10px',
+                  width: '70px', height: '70px', borderRadius: '8px',
+                  overflow: 'hidden', background: 'white', padding: '3px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  {logoEscuela ? (
+                    <img src={logoEscuela} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '28px' }}>🏫</span>
+                  )}
+                </div>
+                {/* Etiqueta */}
+                <div style={{
+                  position: 'absolute', bottom: '10px', right: '12px',
+                  color: 'white', fontWeight: 'bold', fontSize: '16px',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                }}>
+                  {config.etiqueta}
+                </div>
+              </div>
+
+              {/* Fondo blanco */}
+              <div style={{ background: 'white', height: '50%', position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  height: '8px', background: config.colorFranja
+                }} />
+                <div style={{
+                  position: 'absolute', left: '140px', top: '8px',
+                  fontSize: '10px', color: '#333', lineHeight: '1.8'
+                }}>
+                  <div><span style={{ color: '#666' }}>Nombre  :</span> <strong>{nombre || ''}</strong></div>
+                  {esEstudiante ? (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
+                      {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
+                    </div>
+                  ) : (
+                    <div><span style={{ color: '#666' }}>Cargo   :</span> <strong>{tipo}</strong></div>
+                  )}
+                  <div><span style={{ color: '#666' }}>Año      :</span> <strong>{anio || ''}</strong></div>
+                </div>
+              </div>
+
+              {/* Foto circular */}
               <div style={{
-                position: 'absolute', inset: 0, opacity: 0.15,
-                backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
-                backgroundSize: '12px 12px'
-              }} />
-              {/* Logo */}
-              <div style={{
-                position: 'absolute', top: '8px', right: '10px',
-                width: '70px', height: '70px', borderRadius: '8px',
-                overflow: 'hidden', background: 'white', padding: '3px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                position: 'absolute', left: '12px', top: '18px',
+                width: '100px', height: '100px', borderRadius: '50%',
+                border: '3px solid white', overflow: 'hidden', background: '#e5e7eb',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
               }}>
-                {logoEscuela ? (
-                  <img src={logoEscuela} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                {foto ? (
+                  <img src={foto} alt="foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <span style={{ fontSize: '28px' }}>🏫</span>
+                  <div style={{
+                    width: '100%', height: '100%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '32px', background: config.fotoFondo
+                  }}>👤</div>
                 )}
               </div>
-              {/* Etiqueta */}
-              <div style={{
-                position: 'absolute', bottom: '10px', right: '12px',
-                color: 'white', fontWeight: 'bold', fontSize: '16px',
-                textShadow: '0 1px 3px rgba(0,0,0,0.4)'
-              }}>
-                {config.etiqueta}
-              </div>
-            </div>
 
-            {/* Fondo blanco */}
-            <div style={{ background: 'white', height: '50%', position: 'relative' }}>
+              {/* Código de barras */}
               <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                height: '8px', background: config.colorFranja
-              }} />
-              <div style={{
-                position: 'absolute', left: '140px', top: '8px',
-                fontSize: '10px', color: '#333', lineHeight: '1.8'
+                position: 'absolute', left: '6px', bottom: '14px',
+                width: '116px', background: 'white', borderRadius: '8px', padding: '3px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
               }}>
-                <div><span style={{ color: '#666' }}>Nombre  :</span> <strong>{nombre || ''}</strong></div>
-                {esEstudiante ? (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <span><span style={{ color: '#666' }}>Grado :</span> <strong>{grado || ''}</strong></span>
-                    {seccion && <span><span style={{ color: '#666' }}>Sección :</span> <strong>{seccion}</strong></span>}
-                  </div>
+                {imagenCodigo ? (
+                  <img src={imagenCodigo} alt="barcode" style={{ width: '100%', height: '30px', objectFit: 'contain' }} />
                 ) : (
-                  <div><span style={{ color: '#666' }}>Cargo   :</span> <strong>{tipo}</strong></div>
+                  <div style={{
+                    height: '30px', background: '#f3f4f6', borderRadius: '6px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '8px', color: '#9ca3af'
+                  }}>código de barras</div>
                 )}
-                <div><span style={{ color: '#666' }}>Año      :</span> <strong>{anio || ''}</strong></div>
               </div>
             </div>
-
-            {/* Foto circular */}
-            <div style={{
-              position: 'absolute', left: '12px', top: '18px',
-              width: '100px', height: '100px', borderRadius: '50%',
-              border: '3px solid white', overflow: 'hidden', background: '#e5e7eb',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-            }}>
-              {foto ? (
-                <img src={foto} alt="foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
+          ) : (
+            <div
+              ref={fotocheckRef}
+              style={{ width: '216px', height: '342px', fontFamily: 'Arial, sans-serif' }}
+              className="relative rounded-xl overflow-hidden shadow-2xl flex flex-col"
+            >
+              {/* Header */}
+              <div style={{ background: config.colorHeader, height: '110px', position: 'relative', flexShrink: 0 }}>
                 <div style={{
-                  width: '100%', height: '100%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '32px', background: config.fotoFondo
-                }}>👤</div>
-              )}
-            </div>
-
-            {/* Código de barras */}
-            <div style={{
-              position: 'absolute', left: '6px', bottom: '14px',
-              width: '116px', background: 'white', borderRadius: '8px', padding: '3px',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-            }}>
-              {imagenCodigo ? (
-                <img src={imagenCodigo} alt="barcode" style={{ width: '100%', height: '30px', objectFit: 'contain' }} />
-              ) : (
+                  position: 'absolute', inset: 0, opacity: 0.15,
+                  backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)',
+                  backgroundSize: '12px 12px'
+                }} />
+                {/* Logo */}
                 <div style={{
-                  height: '30px', background: '#f3f4f6', borderRadius: '6px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '8px', color: '#9ca3af'
-                }}>código de barras</div>
-              )}
+                  position: 'absolute', top: '10px', left: '10px',
+                  width: '48px', height: '48px', borderRadius: '8px',
+                  overflow: 'hidden', background: 'white', padding: '3px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  {logoEscuela ? (
+                    <img src={logoEscuela} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '20px' }}>🏫</span>
+                  )}
+                </div>
+                {/* Etiqueta */}
+                <div style={{
+                  position: 'absolute', top: '66px', left: '10px', right: '10px',
+                  color: 'white', fontWeight: 'bold', fontSize: '14px',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.4)'
+                }}>
+                  {config.etiqueta}
+                </div>
+              </div>
+
+              {/* Cuerpo blanco en columna */}
+              <div style={{
+                background: 'white', flex: 1, position: 'relative',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '16px 10px 0'
+              }}>
+                {/* Foto circular */}
+                <div style={{
+                  width: '90px', height: '90px', borderRadius: '50%',
+                  border: '3px solid white', overflow: 'hidden', background: '#e5e7eb',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)', marginTop: '-30px',
+                  flexShrink: 0
+                }}>
+                  {foto ? (
+                    <img src={foto} alt="foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{
+                      width: '100%', height: '100%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '30px', background: config.fotoFondo
+                    }}>👤</div>
+                  )}
+                </div>
+
+                {/* Nombre */}
+                <p style={{
+                  fontSize: '13px', fontWeight: 'bold', color: '#1e293b',
+                  textAlign: 'center', marginTop: '10px', lineHeight: '1.3'
+                }}>{nombre || ''}</p>
+
+                {/* Datos */}
+                <div style={{ fontSize: '10px', color: '#333', lineHeight: '1.9', textAlign: 'center', marginTop: '6px' }}>
+                  {esEstudiante ? (
+                    <>
+                      <div><span style={{ color: '#666' }}>Grado:</span> <strong>{grado || ''}</strong>{seccion ? ` "${seccion}"` : ''}</div>
+                    </>
+                  ) : (
+                    <div><span style={{ color: '#666' }}>Cargo:</span> <strong>{tipo}</strong></div>
+                  )}
+                  <div><span style={{ color: '#666' }}>Año:</span> <strong>{anio || ''}</strong></div>
+                </div>
+
+                {/* Espaciador flexible */}
+                <div style={{ flex: 1 }} />
+
+                {/* Código de barras */}
+                <div style={{
+                  width: '100%', background: 'white', borderRadius: '8px',
+                  padding: '3px', marginBottom: '14px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                }}>
+                  {imagenCodigo ? (
+                    <img src={imagenCodigo} alt="barcode" style={{ width: '100%', height: '30px', objectFit: 'contain' }} />
+                  ) : (
+                    <div style={{
+                      height: '30px', background: '#f3f4f6', borderRadius: '6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '8px', color: '#9ca3af'
+                    }}>código de barras</div>
+                  )}
+                </div>
+
+                {/* Franja inferior */}
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  height: '8px', background: config.colorFranja
+                }} />
+              </div>
             </div>
-          </div>
+          )}
 
           <p className="text-muted text-xs mt-4 text-center">
-            Tamaño real: 85.6 × 54 mm (tarjeta estándar)
+            {orientacion === 'horizontal'
+              ? 'Tamaño real: 85.6 × 54 mm (tarjeta estándar)'
+              : 'Tamaño real: 54 × 85.6 mm (tarjeta estándar vertical)'}
           </p>
         </div>
       </div>
