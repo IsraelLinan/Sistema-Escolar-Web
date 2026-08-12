@@ -77,7 +77,7 @@ export default function BarcodeGenerator() {
           Tipo de Persona
         </label>
         <div className="flex gap-6 mb-6 flex-wrap">
-          {['Estudiante', 'Docente', 'Auxiliar'].map(t => (
+          {['Estudiante', 'Docente', 'Auxiliar', 'Personal Administrativo'].map(t => (
             <label key={t} className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio" value={t}

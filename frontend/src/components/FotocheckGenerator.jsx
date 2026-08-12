@@ -21,6 +21,11 @@ const TIPOS = [
     colorFranja: 'linear-gradient(90deg, #4f8ef7, #2563eb)', colorBoton: '#ef4444', colorBotonHover: '#dc2626',
     etiqueta: 'Carné de Auxiliar', fotoFondo: '#fee2e2'
   },
+  {
+    valor: 'Personal Administrativo', label: '🗂️ Personal Admin.', colorHeader: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
+    colorFranja: 'linear-gradient(90deg, #4f8ef7, #2563eb)', colorBoton: '#f59e0b', colorBotonHover: '#d97706',
+    etiqueta: 'Carné de Personal Admin.', fotoFondo: '#fef3c7'
+  },
 ];
 
 const GRADOS = [

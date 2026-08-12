@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import StudentIngress from '../components/StudentIngress';
 import TeacherIngress from '../components/TeacherIngress';
 import AuxiliarIngress from '../components/AuxiliarIngress';
+import PersonalAdminIngress from '../components/PersonalAdminIngress';
 import AuxiliaresModule from '../components/AuxiliaresModule';
 import BarcodeGenerator from '../components/BarcodeGenerator';
 import WeeklyReports from '../components/WeeklyReports';
@@ -37,19 +38,20 @@ export default function Dashboard() {
 
   const renderModule = () => {
     switch (activeModule) {
-      case 'estudiantes':           return <StudentIngress />;
-      case 'docentes':              return <TeacherIngress />;
-      case 'asistencia_auxiliares': return <AuxiliarIngress />;
-      case 'reportes':              return <WeeklyReports />;
-      case 'auxiliares':            return <AuxiliaresModule />;
-      case 'codigos':               return <BarcodeGenerator />;
-      case 'fotocheck':             return <FotocheckGenerator />;
-      case 'carnets':               return <CarnetsModule />;
-      case 'apoderados':            return <ApoderadosManager />;
-      case 'agenda':                return <AgendaEscolar />;
-      case 'notas':                 return <CuadroNotas />;
-      case 'colegios':              return <GestionColegios />;
-      default:                      return null;
+      case 'estudiantes':               return <StudentIngress />;
+      case 'docentes':                  return <TeacherIngress />;
+      case 'asistencia_auxiliares':     return <AuxiliarIngress />;
+      case 'asistencia_personal_admin': return <PersonalAdminIngress />;
+      case 'reportes':                  return <WeeklyReports />;
+      case 'auxiliares':                return <AuxiliaresModule />;
+      case 'codigos':                   return <BarcodeGenerator />;
+      case 'fotocheck':                 return <FotocheckGenerator />;
+      case 'carnets':                   return <CarnetsModule />;
+      case 'apoderados':                return <ApoderadosManager />;
+      case 'agenda':                    return <AgendaEscolar />;
+      case 'notas':                     return <CuadroNotas />;
+      case 'colegios':                  return <GestionColegios />;
+      default:                          return null;
     }
   };
 
@@ -110,6 +112,7 @@ export default function Dashboard() {
               <NavButton id="estudiantes"           icon="🎓"  label="Asistencia de Estudiantes" color="#4f8ef7" />
               <NavButton id="docentes"              icon="👨‍🏫" label="Asistencia de Docentes"    color="#22c55e" />
               <NavButton id="asistencia_auxiliares" icon="👷"  label="Asistencia de Auxiliares"  color="#10b981" />
+              <NavButton id="asistencia_personal_admin" icon="🗂️" label="Asistencia de Personal Admin." color="#f43f5e" />
               <NavButton id="reportes"              icon="📋"  label="Reporte de Asistencia"     color="#f59e0b" />
 
               <div className="border-t border-theme my-3" />

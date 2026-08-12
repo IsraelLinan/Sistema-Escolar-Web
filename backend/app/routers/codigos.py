@@ -14,7 +14,7 @@ router = APIRouter(prefix="/codigos", tags=["Generador de Códigos de Barra"])
 
 class BarcodeRequest(BaseModel):
     nombre: str
-    tipo_persona: str  # "Estudiante", "Docente" o "Auxiliar"
+    tipo_persona: str  # "Estudiante", "Docente", "Auxiliar" o "Personal Administrativo"
 
 
 def _generar_imagen_barcode(codigo: str) -> str:
@@ -31,10 +31,10 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
     try:
         cur = conn.cursor()
 
-        if data.tipo_persona == "Auxiliar":
+        if data.tipo_persona in ("Auxiliar", "Personal Administrativo"):
             cur.execute(
-                "SELECT id, nombre, codigo_barras FROM auxiliares_codigos WHERE LOWER(nombre) = LOWER(%s) AND colegio_id = %s",
-                (data.nombre.strip(), colegio_id)
+                "SELECT id, nombre, codigo_barras FROM auxiliares_codigos WHERE LOWER(nombre) = LOWER(%s) AND colegio_id = %s AND cargo = %s",
+                (data.nombre.strip(), colegio_id, data.tipo_persona)
             )
             existente = cur.fetchone()
 
@@ -49,14 +49,14 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
                     "mensaje": f"'{existente[1]}' ya está registrado. Se muestra su código existente."
                 }
 
-            unique_id = hashlib.md5(f"{data.nombre.strip()}-{colegio_id}".encode()).hexdigest()
+            unique_id = hashlib.md5(f"{data.nombre.strip()}-{colegio_id}-{data.tipo_persona}".encode()).hexdigest()
             cur.execute("SELECT id FROM auxiliares_codigos WHERE codigo_barras = %s", (unique_id,))
             if cur.fetchone():
                 unique_id = hashlib.md5((data.nombre.strip() + str(colegio_id) + str(datetime.now())).encode()).hexdigest()
 
             cur.execute(
-                "INSERT INTO auxiliares_codigos (nombre, codigo_barras, colegio_id) VALUES (%s, %s, %s)",
-                (data.nombre.strip(), unique_id, colegio_id)
+                "INSERT INTO auxiliares_codigos (nombre, codigo_barras, colegio_id, cargo) VALUES (%s, %s, %s, %s)",
+                (data.nombre.strip(), unique_id, colegio_id, data.tipo_persona)
             )
             conn.commit()
             cur.close()
@@ -66,7 +66,7 @@ def generar_codigo(data: BarcodeRequest, usuario: str = Depends(verificar_token)
                 "codigo": unique_id,
                 "imagen": _generar_imagen_barcode(unique_id),
                 "duplicado": False,
-                "mensaje": f"'{data.nombre.strip()}' registrado correctamente como Auxiliar."
+                "mensaje": f"'{data.nombre.strip()}' registrado correctamente como {data.tipo_persona}."
             }
 
         # Estudiante o Docente
@@ -127,10 +127,10 @@ def buscar_codigo(nombre: str, tipo: str = "Estudiante", usuario: str = Depends(
     conn = get_conn()
     try:
         cur = conn.cursor()
-        if tipo == "Auxiliar":
+        if tipo in ("Auxiliar", "Personal Administrativo"):
             cur.execute(
-                "SELECT codigo_barras FROM auxiliares_codigos WHERE nombre ILIKE %s AND colegio_id = %s LIMIT 1",
-                (f"%{nombre}%", colegio_id)
+                "SELECT codigo_barras FROM auxiliares_codigos WHERE nombre ILIKE %s AND colegio_id = %s AND cargo = %s LIMIT 1",
+                (f"%{nombre}%", colegio_id, tipo)
             )
         else:
             tabla = "estudiantes" if tipo == "Estudiante" else "docentes"
