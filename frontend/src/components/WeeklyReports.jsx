@@ -13,7 +13,7 @@ export default function WeeklyReports() {
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [total, setTotal] = useState(0);
-  const [totales, setTotales] = useState({ estudiantes: 0, docentes: 0, auxiliares: 0, general: 0 });
+  const [totales, setTotales] = useState({ estudiantes: 0, docentes: 0, auxiliares: 0, general: 0, personalAdmin: 0});
   const POR_PAGINA = 20;
 
   const fetchReporte = async (pag = pagina) => {
@@ -45,6 +45,7 @@ export default function WeeklyReports() {
         estudiantes: todos.filter(r => r.tipo === 'Estudiante').length,
         docentes: todos.filter(r => r.tipo === 'Docente').length,
         auxiliares: todos.filter(r => r.tipo === 'Auxiliar').length,
+        personalAdmin: todos.filter(r => r.tipo === 'Personal Administrativo').length,
       });
     } catch {}
   };
@@ -63,6 +64,7 @@ export default function WeeklyReports() {
   const tipoColor = (tipo) => {
     if (tipo === 'Estudiante') return 'bg-[#4f8ef720] text-[#4f8ef7]';
     if (tipo === 'Docente')    return 'bg-[#22c55e20] text-[#22c55e]';
+    if (tipo === 'Personal Administrativo') return 'bg-[#f59e0b20] text-[#f59e0b]';
     return 'bg-[#10b98120] text-[#10b981]';
   };
 
@@ -104,6 +106,7 @@ export default function WeeklyReports() {
               <option value="Estudiante">Estudiantes</option>
               <option value="Docente">Docentes</option>
               <option value="Auxiliar">Auxiliares</option>
+              <option value="Personal Administrativo">Personal Administrativo</option>
             </select>
           </div>
           <div className="flex-1">
@@ -126,12 +129,13 @@ export default function WeeklyReports() {
       </div>
 
       {/* Métricas */}
-      <div className="grid grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-5 gap-4 mb-4">
         {[
-          { label: 'Total Ingresos', value: totales.general,      color: '#4f8ef7' },
-          { label: 'Estudiantes',    value: totales.estudiantes,   color: '#22c55e' },
-          { label: 'Docentes',       value: totales.docentes,      color: '#f59e0b' },
-          { label: 'Auxiliares',     value: totales.auxiliares,    color: '#10b981' },
+          { label: 'Total Ingresos', value: totales.general,        color: '#4f8ef7' },
+          { label: 'Estudiantes',    value: totales.estudiantes,     color: '#22c55e' },
+          { label: 'Docentes',       value: totales.docentes,        color: '#f59e0b' },
+          { label: 'Auxiliares',     value: totales.auxiliares,      color: '#10b981' },
+          { label: 'Personal Admin.',value: totales.personalAdmin,   color: '#f43f5e' },
         ].map(m => (
           <div key={m.label} className="bg-theme2 border border-theme rounded-2xl p-4 text-center">
             <p className="text-muted text-xs font-bold uppercase mb-1">{m.label}</p>

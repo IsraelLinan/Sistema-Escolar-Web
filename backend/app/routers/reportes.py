@@ -29,7 +29,8 @@ _QUERY_ASISTENCIA = """
 
     UNION ALL
 
-    SELECT ac.nombre, ia.hora_ingreso, ia.hora_salida, 'Auxiliar' as tipo
+    SELECT ac.nombre, ia.hora_ingreso, ia.hora_salida,
+        CASE WHEN ac.cargo = 'Personal Administrativo' THEN 'Personal Administrativo' ELSE 'Auxiliar' END as tipo
     FROM ingresos_auxiliares ia
     JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
     WHERE DATE(ia.hora_ingreso) = %s AND ac.colegio_id = %s
