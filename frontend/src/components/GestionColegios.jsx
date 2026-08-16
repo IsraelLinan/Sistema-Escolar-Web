@@ -13,6 +13,11 @@ export default function GestionColegios() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
+  const [colegioUsuario, setColegioUsuario] = useState(null); // colegio seleccionado para crear usuario
+  const [nuevoUsername, setNuevoUsername] = useState('');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [creandoUsuario, setCreandoUsuario] = useState(false);
+
   useEffect(() => { fetchColegios(); }, []);
 
   const fetchColegios = async () => {
@@ -62,6 +67,30 @@ export default function GestionColegios() {
       fetchColegios();
     } catch (e) {
       showMensaje('Error al cambiar el estado del colegio.', 'error');
+    }
+  };
+
+  const handleCrearUsuario = async () => {
+    if (!nuevoUsername.trim() || !nuevaPassword.trim()) {
+      showMensaje('Usuario y contraseña son obligatorios.', 'error');
+      return;
+    }
+    setCreandoUsuario(true);
+    try {
+      await axios.post(`${API_URL}/colegios/crear-usuario`, {
+        colegio_id: colegioUsuario.id,
+        username: nuevoUsername.trim(),
+        password: nuevaPassword
+      });
+      showMensaje(`✔ Usuario "${nuevoUsername}" creado para ${colegioUsuario.nombre}.`, 'success');
+      setColegioUsuario(null);
+      setNuevoUsername('');
+      setNuevaPassword('');
+      fetchColegios();
+    } catch (e) {
+      showMensaje(e.response?.data?.detail || 'Error al crear el usuario.', 'error');
+    } finally {
+      setCreandoUsuario(false);
     }
   };
 
@@ -208,12 +237,20 @@ export default function GestionColegios() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <button
-                        onClick={() => toggleActivo(c.id)}
-                        className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition"
-                      >
-                        {c.activo ? 'Desactivar' : 'Activar'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setColegioUsuario(c)}
+                          className="bg-[#4f8ef720] hover:bg-[#4f8ef740] border border-[#4f8ef7] text-[#4f8ef7] text-xs font-bold px-3 py-2 rounded-lg transition"
+                        >
+                          👤 Crear Admin
+                        </button>
+                        <button
+                          onClick={() => toggleActivo(c.id)}
+                          className="bg-theme3 hover:bg-theme border border-theme text-theme text-xs font-bold px-3 py-2 rounded-lg transition"
+                        >
+                          {c.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -223,11 +260,62 @@ export default function GestionColegios() {
         )}
       </div>
 
+      {/* Modal crear usuario administrador */}
+      {colegioUsuario && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+          <div className="bg-theme2 border border-theme rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-theme font-bold text-lg">👤 Crear Administrador</h3>
+              <button
+                onClick={() => { setColegioUsuario(null); setNuevoUsername(''); setNuevaPassword(''); }}
+                className="text-muted hover:text-theme text-xl font-bold transition"
+              >✕</button>
+            </div>
+            <p className="text-muted text-sm mb-4">
+              Para el colegio <strong className="text-theme">{colegioUsuario.nombre}</strong>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Usuario</label>
+                <input
+                  type="text" value={nuevoUsername}
+                  onChange={e => setNuevoUsername(e.target.value)}
+                  placeholder="Ej: admin_sanmartin"
+                  className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4f8ef7]"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs font-bold uppercase mb-1">Contraseña</label>
+                <input
+                  type="password" value={nuevaPassword}
+                  onChange={e => setNuevaPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCrearUsuario()}
+                  placeholder="••••••••"
+                  className="w-full bg-theme3 border border-theme text-theme rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4f8ef7]"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setColegioUsuario(null); setNuevoUsername(''); setNuevaPassword(''); }}
+                className="flex-1 bg-theme3 hover:bg-theme border border-theme text-muted font-bold py-3 rounded-xl transition text-sm"
+              >Cancelar</button>
+              <button
+                onClick={handleCrearUsuario}
+                disabled={creandoUsuario}
+                className="flex-1 bg-[#4f8ef7] hover:bg-[#3a7ae0] text-white font-bold py-3 rounded-xl transition text-sm disabled:opacity-50"
+              >{creandoUsuario ? 'Creando...' : '✔ Crear Usuario'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Nota informativa */}
       <div className="bg-theme2 border border-theme rounded-2xl p-4 mt-4">
         <p className="text-muted text-xs">
-          💡 Después de crear un colegio, registra su primer usuario administrador desde la Terminal.
-          Consulta el archivo <strong>INSTALACION.md</strong> para el procedimiento detallado.
+          💡 Haz clic en <strong>👤 Crear Admin</strong> en cualquier colegio de la lista para registrar su primer usuario administrador directamente desde aquí.
         </p>
       </div>
     </div>

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.database import get_conn, put_conn
 from app.auth import requiere_super_admin
+import bcrypt
 
 router = APIRouter(prefix="/colegios", tags=["Colegios (Super Admin)"])
 
@@ -82,6 +83,48 @@ def toggle_activo(colegio_id: int, usuario: str = Depends(requiere_super_admin))
         conn.commit()
         cur.close()
         return {"success": True, "activo": row[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        put_conn(conn)
+        
+class UsuarioColegioCreate(BaseModel):
+    colegio_id: int
+    username: str
+    password: str
+
+
+@router.post("/crear-usuario")
+def crear_usuario_colegio(data: UsuarioColegioCreate, usuario: str = Depends(requiere_super_admin)):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM colegios WHERE id = %s", (data.colegio_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="El colegio no existe.")
+
+        cur.execute("SELECT id FROM usuarios WHERE username = %s", (data.username.strip(),))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail=f"Ya existe un usuario con el nombre '{data.username}'.")
+
+        if len(data.password) < 4:
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 4 caracteres.")
+
+        password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+
+        cur.execute("""
+            INSERT INTO usuarios (username, password, colegio_id, rol)
+            VALUES (%s, %s, %s, 'admin')
+            RETURNING id
+        """, (data.username.strip(), password_hash, data.colegio_id))
+        uid = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        return {"success": True, "id": uid}
     except HTTPException:
         raise
     except Exception as e:
