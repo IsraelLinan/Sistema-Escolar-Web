@@ -9,6 +9,7 @@ const TABS = [
   { valor: 'Estudiante', label: '🎓 Estudiantes', color: '#3b82f6' },
   { valor: 'Docente',    label: '👨‍🏫 Docentes',    color: '#22c55e' },
   { valor: 'Auxiliar',   label: '👷 Auxiliares',   color: '#ef4444' },
+  { valor: 'Personal Administrativo', label: '🗂️ Personal Admin.', color: '#f59e0b' },
 ];
 
 export default function CarnetsModule() {
@@ -118,8 +119,8 @@ export default function CarnetsModule() {
   };
 
   const colorActivo = TABS.find(t => t.valor === tipo)?.color || '#3b82f6';
-  const nombrePersona = { Estudiante: 'estudiante', Docente: 'docente', Auxiliar: 'auxiliar' }[tipo];
-  const nombreModulo = { Estudiante: 'Escolar', Docente: 'Docente', Auxiliar: 'Auxiliar' }[tipo];
+  const nombrePersona = { Estudiante: 'estudiante', Docente: 'docente', Auxiliar: 'auxiliar', 'Personal Administrativo': 'personal administrativo' }[tipo];
+  const nombreModulo = { Estudiante: 'Escolar', Docente: 'Docente', Auxiliar: 'Auxiliar', 'Personal Administrativo': 'Personal Admin.' }[tipo];
 
   return (
     <div className="max-w-6xl mx-auto">
