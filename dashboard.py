@@ -89,9 +89,10 @@ st.markdown("""
 
 # ── Colores ───────────────────────────────────────────────────────────────────
 CHART_COLORS = {
-    "Estudiantes": "#4f8ef7",
-    "Docentes":    "#22c55e",
-    "Auxiliares":  "#f59e0b",
+    "Estudiantes":     "#4f8ef7",
+    "Docentes":        "#22c55e",
+    "Auxiliares":      "#10b981",
+    "Personal Admin.": "#f59e0b",
 }
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -127,10 +128,19 @@ def get_data_for_dashboard(selected_date):
             SELECT 'Docentes' AS tipo, COUNT(*) AS cantidad FROM ingresos_docentes
             WHERE hora_ingreso BETWEEN %s AND %s
             UNION ALL
-            SELECT 'Auxiliares' AS tipo, COUNT(*) AS cantidad FROM ingresos_auxiliares
-            WHERE hora_ingreso BETWEEN %s AND %s
+            SELECT 'Auxiliares' AS tipo, COUNT(*) AS cantidad
+            FROM ingresos_auxiliares ia
+            JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
+            WHERE ia.hora_ingreso BETWEEN %s AND %s
+              AND (ac.cargo IS NULL OR ac.cargo = 'Auxiliar')
+            UNION ALL
+            SELECT 'Personal Admin.' AS tipo, COUNT(*) AS cantidad
+            FROM ingresos_auxiliares ia
+            JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
+            WHERE ia.hora_ingreso BETWEEN %s AND %s
+              AND ac.cargo = 'Personal Administrativo'
             """,
-            (start, end, start, end, start, end)
+            (start, end, start, end, start, end, start, end)
         )
         data = cur.fetchall()
         cur.close()
@@ -143,6 +153,7 @@ def get_data_for_dashboard(selected_date):
             db_pool.put_conn(conn)
 
 
+@st.cache_data(ttl=60)
 @st.cache_data(ttl=60)
 def get_weekly_trend(selected_date):
     """Tendencia de lunes a viernes de la semana que contiene selected_date."""
@@ -166,13 +177,22 @@ def get_weekly_trend(selected_date):
             WHERE DATE(hora_ingreso) BETWEEN %s AND %s
             GROUP BY DATE(hora_ingreso)
             UNION ALL
-            SELECT DATE(hora_ingreso) as fecha, COUNT(*) as cantidad, 'Auxiliares' as tipo
-            FROM ingresos_auxiliares
-            WHERE DATE(hora_ingreso) BETWEEN %s AND %s
-            GROUP BY DATE(hora_ingreso)
+            SELECT DATE(ia.hora_ingreso) as fecha, COUNT(*) as cantidad, 'Auxiliares' as tipo
+            FROM ingresos_auxiliares ia
+            JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
+            WHERE DATE(ia.hora_ingreso) BETWEEN %s AND %s
+              AND (ac.cargo IS NULL OR ac.cargo = 'Auxiliar')
+            GROUP BY DATE(ia.hora_ingreso)
+            UNION ALL
+            SELECT DATE(ia.hora_ingreso) as fecha, COUNT(*) as cantidad, 'Personal Admin.' as tipo
+            FROM ingresos_auxiliares ia
+            JOIN auxiliares_codigos ac ON ac.id = ia.auxiliar_id
+            WHERE DATE(ia.hora_ingreso) BETWEEN %s AND %s
+              AND ac.cargo = 'Personal Administrativo'
+            GROUP BY DATE(ia.hora_ingreso)
             ORDER BY fecha
             """,
-            (lunes, viernes, lunes, viernes, lunes, viernes)
+            (lunes, viernes, lunes, viernes, lunes, viernes, lunes, viernes)
         )
         data = cur.fetchall()
         cur.close()
@@ -181,7 +201,7 @@ def get_weekly_trend(selected_date):
         # Rellenar los 5 días (lunes a viernes) aunque no tengan registros
         dias_semana = pd.date_range(lunes, viernes, freq='D')
         base = pd.MultiIndex.from_product(
-            [dias_semana.date, ['Estudiantes', 'Docentes', 'Auxiliares']],
+            [dias_semana.date, ['Estudiantes', 'Docentes', 'Auxiliares', 'Personal Admin.']],
             names=['fecha', 'tipo']
         ).to_frame(index=False)
         df = base.merge(df, on=['fecha', 'tipo'], how='left').fillna({'cantidad': 0})
@@ -219,19 +239,22 @@ def create_dashboard():
     est = int(df[df['tipo'] == 'Estudiantes']['cantidad'].values[0]) if not df.empty and 'Estudiantes' in df['tipo'].values else 0
     doc = int(df[df['tipo'] == 'Docentes']['cantidad'].values[0])    if not df.empty and 'Docentes'    in df['tipo'].values else 0
     aux = int(df[df['tipo'] == 'Auxiliares']['cantidad'].values[0])  if not df.empty and 'Auxiliares'  in df['tipo'].values else 0
+    pad = int(df[df['tipo'] == 'Personal Admin.']['cantidad'].values[0]) if not df.empty and 'Personal Admin.' in df['tipo'].values else 0
 
     # ── 1. Tarjetas de totales ────────────────────────────────────────────────
-    m1, m2, m3 = st.columns(3)
+    m1, m2, m3, m4 = st.columns(4)
     with m1:
         st.metric("🎓 Estudiantes", est)
     with m2:
         st.metric("👨‍🏫 Docentes", doc)
     with m3:
         st.metric("👷 Auxiliares", aux)
+    with m4:
+        st.metric("🗂️ Personal Admin.", pad)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if est + doc + aux == 0:
+    if est + doc + aux + pad == 0:
         st.info(f"📭  No hay registros de ingresos para el **{selected_date.strftime('%d de %B de %Y')}**.")
     else:
         # ── 2. Gráfico de barras + pastel ────────────────────────────────────
